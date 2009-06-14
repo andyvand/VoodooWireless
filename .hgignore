@@ -1,0 +1,10 @@
+syntax: glob
+build
+*.pbxindex
+*.mode1v3
+*.pbxuser
+*.rej
+*.o
+*~
+.DS_Store
+._DS_Store
