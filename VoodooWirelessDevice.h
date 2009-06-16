@@ -41,37 +41,37 @@ protected:
 public:
 	/* The public functions are intended to be used by the clients of this class */
 	/* Functions to init / shutdown the HW */
-	virtual bool		allocateResources	( ) = 0;
+	virtual IOReturn	allocateResources	( ) = 0;
 	virtual void		freeResources		( ) = 0;
-	virtual bool		turnPowerOn		( ) = 0;
-	virtual bool		turnPowerOff		( ) = 0;
+	virtual IOReturn	turnPowerOn		( ) = 0;
+	virtual IOReturn	turnPowerOff		( ) = 0;
 	
 	/* Functions for establishing connections etc. */
-	virtual bool		startScan		(const ScanParameters* params,
+	virtual IOReturn	startScan		(const ScanParameters* params,
 							 const IEEE::ChannelList* channels) = 0;
 	
-	virtual bool		startChannelScan	(const ScanParameters* params,
+	virtual IOReturn	startChannelScan	(const ScanParameters* params,
 							 const Channel* channel) = 0;
 	
-	virtual bool		abortScan		( ) = 0;
+	virtual IOReturn	abortScan		( ) = 0;
 	
-	/* Following is optionally overridden by subclasses. Return value = number of results (could be zero) */
+	/* Following can be optionally overridden by subclasses, otherwise superclass will
+	   implement this to return scan results harvested from received probe responses.
+	   Return value = number of results (could be zero) */
 	virtual int		getScanResults		(ScanResult* results);
 	
-	virtual bool		associate		(const AssociationParameters* params) = 0;
+	virtual IOReturn	associate		(const AssociationParameters* params) = 0;
 	
-	virtual bool		disasssociate		( ) = 0;
+	virtual IOReturn	disasssociate		( ) = 0;
 	
 	/* Various configuration functions */
 	virtual void		getHardwareInfo		(HardwareInfo* info) = 0;
-	virtual unsigned int	getTxPower		( ) = 0;	// in percent
-	virtual bool		setTxPower		(unsigned int power); // in percent
+	virtual IOReturn	getConfiguration	(HardwareConfigType type, void* param);
+	virtual IOReturn	setConfiguration	(HardwareConfigType type, void* param);
 	
 	/* Functions to send out data (NOT TO BE IMPLEMENTED by derived classes) */
 	IOReturn		txRaw80211Frame		(mbuf_t m);	// transmit a fully formed raw 802.11 frame
 	IOReturn		txData			(mbuf_t m);	// transmit an ethernet frame
-	
-	virtual IEEE::DataRate	getCurrentTxRate	( );		// optionally implementable by hardware
 	
 private:
 	/* The following are reserved slots for future expansion */

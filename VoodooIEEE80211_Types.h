@@ -21,6 +21,11 @@ namespace IEEE {
 		uint8_t bytes[6];
 	};
 	
+	struct WEPKey {
+		uint8_t		index;		// 1 to 4
+		OSString*	key;		// 40 or 104 bits (5 or 13 bytes)
+	};
+	
 	enum PHYModes {
 		dot11A	= 1,		// 5GHz OFDM
 		dot11B	= 2,		// 2.4GHz CCK
@@ -54,6 +59,7 @@ namespace IEEE {
 	};
 	
 	enum DataRate {
+		rateIsBasic	= 128,	// basic rates should be OR'd with this value (ie. bit 7 = 1)
 		/* Rates are just uint32_t, in 0.5 Mbps units */
 		rate1Mbps	= 2,	// 1 Mbps CCK
 		rate2Mbps	= 4,	// 2 Mbps CCK
