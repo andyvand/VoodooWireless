@@ -48,23 +48,31 @@ public:
 	
 	/* Functions for establishing connections etc. */
 	virtual bool		startScan		(const ScanParameters* params,
-							 IEEE::ChannelList* channels) = 0;
+							 const IEEE::ChannelList* channels) = 0;
 	
 	virtual bool		startChannelScan	(const ScanParameters* params,
 							 const Channel* channel) = 0;
 	
 	virtual bool		abortScan		( ) = 0;
 	
+	/* Following is optionally overridden by subclasses. Return value = number of results (could be zero) */
+	virtual int		getScanResults		(ScanResult* results);
+	
 	virtual bool		associate		(const AssociationParameters* params) = 0;
 	
 	virtual bool		disasssociate		( ) = 0;
+	
+	/* Various configuration functions */
+	virtual void		getHardwareInfo		(HardwareInfo* info) = 0;
+	virtual unsigned int	getTxPower		( ) = 0;	// in percent
+	virtual bool		setTxPower		(unsigned int power); // in percent
 	
 	/* Functions to send out data (NOT TO BE IMPLEMENTED by derived classes) */
 	IOReturn		txRaw80211Frame		(mbuf_t m);	// transmit a fully formed raw 802.11 frame
 	IOReturn		txData			(mbuf_t m);	// transmit an ethernet frame
 	
-	virtual IEEE::DataRate	getCurrentTxRate	();		// optionally implementable by hardware
-
+	virtual IEEE::DataRate	getCurrentTxRate	( );		// optionally implementable by hardware
+	
 private:
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 0);
