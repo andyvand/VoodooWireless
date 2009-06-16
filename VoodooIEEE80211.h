@@ -25,7 +25,7 @@ public:
 	void stop(IOService* provider);
 	
 	/* IEEE functions */
-	
+
 };
 
 namespace org_voodoo_wireless {
@@ -33,9 +33,9 @@ namespace org_voodoo_wireless {
 	private:
 		OSOrderedSet* _set;
 	public:
-		virtual IEList* withOSData(OSData* data);
-		virtual IEList* withData(void* data);
+		virtual IEList* withData(OSData* data);
 		virtual OSData* getAsData(IEEE::IE::ID which);
+		virtual size_t	getNumElements();
 	};
 }
 

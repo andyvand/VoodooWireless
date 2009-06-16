@@ -85,6 +85,43 @@ namespace IEEE {
 		DataRate		rate[MAX_RATES];
 	};
 	
+	enum ReasonCode {
+		// § 7.3.1.7 Table 7-22
+		reasonUnspecified		= 1,
+		reasonPreviousAuthExpired	= 2,
+		reasonDeauthBecauseSTALeft	= 3,
+		reasonDisassocDueToInactivity	= 4,
+		reasonAPFull			= 5,
+		reasonClass2FrameRxWithoutAuth	= 6,
+		reasonClass3FrameRxWithoutAssoc	= 7,
+		reasonDisassocBecauseSTALeft	= 8,
+		reasonNotAuthorized		= 9,
+		reasonPowerCapsUnacceptable	= 10,
+		reasonSupportedChannelsUnacceptable = 11,
+		reasonInvalidIE			= 13, /* 12 is reserved */
+		reasonMICFailure		= 14,
+		reason4WayHandshakeTimeout	= 15,
+		reasonGroupKeyHandshakeTimeout	= 16,
+		reasonIEMismatch		= 17,
+		reasonInvalidGroupCipher	= 18,
+		reasonInvalidPairwiseCipher	= 19,
+		reasonInvalidAKMP		= 20,
+		reasonUnsupportedRSNIE		= 21,
+		reasonInvalidRSNIECaps		= 22,
+		reason8021XAuthFailed		= 23,
+		reasonCipherSuiteRejected	= 24,
+		reasonQoS			= 32, /* 25-31 reserved */
+		reasonQoSBandwidthUnavailable	= 33,
+		reasonTooManyACKs		= 34,
+		reasonTXOPsOutsideLimits	= 35,
+		reasonPeerSTALeaving		= 36,
+		reasonPeerSTAMechanismRejected	= 37,
+		reasonPeerSTAMechanismNeedsSetup= 38,
+		reasonPeerSTATimeout		= 39,
+		reasonPeerSTACipherUnsupported	= 45, /* 40-44 reserved */
+		reasonPrivateUnspecified	= 0xffff /* our own unspecified failure code */
+	};
+	
 	struct IE {
 		enum ID {
 			/* § 7.3.2 Table 7-26 */
@@ -140,6 +177,109 @@ namespace IEEE {
 		} bits __packed;
 		uint16_t	value;
 	} __packed;
+	
+	
+	/* Following is the structure of a MAC header present in ALL frames. The remaining
+	 * contents of the frame depend on the type/subtype etc. § 7.2 onwards
+	 */	
+	struct WiFiFrameHeader
+	{
+		enum FrameType {
+			ManagementFrame	= 0,
+			ControlFrame	= 1,
+			DataFrame	= 2,
+			ReservedFrame	= 3
+		};
+		
+		enum FrameSubtype {
+			/* Subtype for Management frames: */
+			AssocRequest	= 0,	AssocResponse	= 1,
+			ReassocRequest	= 2,	ReassocResponse	= 3,
+			ProbeRequest	= 4,	ProbeResponse	= 5,
+			/* 6-7 are reserved */
+			Beacon		= 8,	ATIM		= 9,
+			Disassoc	= 10,	Authentication	= 11,
+			DeAuthentication= 12,	Action		= 13,
+			/* 14-15 are reserved */
+			
+			/* Subtypes for Control frames: */
+			/* 0-7 are reserved */
+			BlockAckReq	= 8,	BlockAck	= 9,
+			PSPoll		= 10,	RTS		= 11,
+			CTS		= 12,	ACK		= 13,
+			CFEnd		= 14,	CFEndPoll	= 15,
+			
+			/* Subtypes for Data frames: */
+			Data		= 0,	DataCFAck	= 1,
+			DataCFPoll	= 2,	DataCFAckPoll	= 3,
+			Null		= 4,	CFAck		= 5,
+			CFPoll		= 6,	CFAckPoll	= 7,
+			QoSData		= 8,	QoSDataCFAck	= 9,
+			QoSDataCFPoll	= 10,	QoSDataCFAckPoll = 11,
+			QoSNull		= 12,	/* 13 is reserved */
+			QoSCFPoll	= 14,	QoSCFAckCFPoll	= 15
+		};
+		
+		uint8_t		protocolVersion	:2;
+		FrameType	type		:2;
+		FrameSubtype	subtype		:4;
+		bool		toDS		:1;
+		bool		fromDS		:1;
+		bool		moreFrag	:1;
+		bool		retry		:1;
+		bool		powerSaveMode	:1;	// Called PwrMgt in spec
+		bool		moreData	:1;
+		bool		protectedFrame	:1;
+		bool		order		:1;
+		
+		uint16_t	durationID	:16;
+		
+		/* The following is also present in all MAC headers, but we won't
+		 * put in here because its meaning depends on the particular frame type
+		 IOEthernetAddress	addr1;
+		 */
+	} __packed;
+	
+	struct SequenceControl {
+		uint8_t		fragmentNumber	:4;
+		uint16_t	sequenceNumber	:12;
+	} __packed;
+	
+	struct ManagementFrameHeader
+	{
+		WiFiFrameHeader		hdr;
+		uint8_t			da[6];
+		uint8_t			sa[6];
+		uint8_t			bssid[6];
+		SequenceControl		sequenceControl;
+	} __packed;
+	
+	struct ProbeResponseFrameHeader {
+		ManagementFrameHeader	mgmt;
+		uint64_t		timestamp;
+		uint16_t		beaconInterval;
+		uint16_t		capability;
+		/* Then follow a variable number of information elements */
+		uint8_t			ieData[0];
+	} __packed;
+	
+	struct TxDataFrameHeader {
+		WiFiFrameHeader		hdr;
+		uint8_t			bssid[6];
+		uint8_t			sa[6]; // source MAC addr
+		uint8_t			da[6]; // dest MAC addr
+		uint16_t		seq;
+		uint16_t		qos;
+		uint8_t			data[0]; // variable length
+	} __packed;
+	
+	struct EthernetFrameHeader {
+		uint8_t			da[6];
+		uint8_t			sa[6];
+		uint8_t			frameType[2]; // always = 0x80 0x00
+		uint8_t			data[0]; // variable length
+	} __packed;
+	
 }
 }
 

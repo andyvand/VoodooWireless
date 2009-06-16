@@ -151,6 +151,7 @@ namespace org_voodoo_wireless {
 		
 		msgPowerChanged,		// power was preemptively turned on/off (ie. not initiated by client)
 						// arg=bool turnedOn
+		
 		msgScanAborted,			// scan was aborted (by HW, not as response to client request)
 		msgScanCompleted,		// scanning all specified chanels is completed
 		msgChannelScanned,		// scanning a specific channel is completed (arg=Channel*)

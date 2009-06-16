@@ -20,23 +20,24 @@ using namespace org_voodoo_wireless;
 
 class VoodooWirelessDevice : public IOService
 {
-	
 protected:
 	/* Data members */
 	
-	struct ExpansionData {			// reserved, for internal use only
-	};
+	struct ExpansionData {};		// reserved, for internal use only
 	ExpansionData*		reserved;	// reserved, for internal use only
+	
+	/* The following function should be called by subclasses to report events.
+	 They will be relayed to clients by the superclass as appropriate */
+	void			report			(DeviceResponseMessage msg, void* arg);
 	
 	/* This is to be called by subclasses when it receives any frames from HW. "data" should be raw 802.11 frame */
 	void			rx80211Frame		(RxFrameHeader hdr, mbuf_t data);
 	
-	/* The following function should be called by subclasses to report events.
-	   They will be relayed to clients by the superclass as appropriate */
-	void			report			(DeviceResponseMessage msg, void* arg);
-	
-	/* This function should be implemented by the subclass to output a raw 802.11 frame */
+	/* This function must be implemented by the subclass to output a raw 802.11 frame */
 	virtual IOReturn	tx80211Frame		(TxFrameHeader hdr, mbuf_t data) = 0;
+	
+	/* This function can optionally be implemented by subclass if it wants to handle data frame tx itself */
+	virtual IOReturn	txDataFrame		(TxFrameHeader hdr, mbuf_t data);
 	
 public:
 	/* The public functions are intended to be used by the clients of this class */
