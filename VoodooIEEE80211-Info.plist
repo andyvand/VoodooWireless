@@ -25,7 +25,11 @@
 			<key>IOClass</key>
 			<string>VoodooIEEE80211</string>
 			<key>IOProviderClass</key>
-			<string>IOResource</string>
+			<string>IOResources</string>
+			<key>IOMatchCategory</key>
+			<string>VoodooIEEE80211</string>
+			<key>IOResourceMatch</key>
+			<string>IOKit</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>

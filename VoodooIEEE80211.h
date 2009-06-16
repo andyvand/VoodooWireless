@@ -7,8 +7,37 @@
  *
  */
 
+#ifndef _H_VOODOOIEEE80211_H
+#define _H_VOODOOIEEE80211_H
+
 #include <IOKit/IOService.h>
+#include <libkern/c++/OSData.h>
+#include <libkern/c++/OSOrderedSet.h>
+#include "VoodooWirelessFamily.h"
+#include "VoodooIEEE80211_Types.h"
 
 class VoodooIEEE80211 : public IOService {
 	OSDeclareDefaultStructors(VoodooIEEE80211);
+	
+public:
+	/* IOKit related functions */
+	bool start(IOService* provider);
+	void stop(IOService* provider);
+	
+	/* IEEE functions */
+	
 };
+
+namespace org_voodoo_wireless {
+	class IEList {
+	private:
+		OSOrderedSet* _set;
+	public:
+		virtual IEList* withOSData(OSData* data);
+		virtual IEList* withData(void* data);
+		virtual OSData* getAsData(IEEE::IE::ID which);
+	};
+}
+
+
+#endif//_H_VOODOOIEEE80211_H
