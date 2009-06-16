@@ -74,7 +74,7 @@ namespace org_voodoo_wireless {
 	
 	struct TxFrameHeader {
 		IEEE::DataRate		rate;		// desired Tx rate (can be ignored by HW)
-		IEEE::WEPKey			wepKey;
+		IEEE::WEPKey		wepKey;
 	};
 	
 	struct HardwareCapabilities {
@@ -157,15 +157,23 @@ namespace org_voodoo_wireless {
 		
 		msgAuthenticationFailed,	// authentication step failed
 		msgAuthenticationDone,		// authentication step was done
-		msgAssociationFailed,		// association with AP failed, arg=IEEE::ReasonCode
+		msgAssociationFailed,		// association with AP failed, arg=IEEE::ReasonCode*
 		msgAssociationDone,		// association was finished successfully
-		msgDeassociationFailed,		// deassoc request failed, arg=IEEE::ReasonCode
-		msgDeassociationDone,		// deassociated from AP, arg=IEEE::ReasonCode
-		msgDeauthenticated,		// deauthenticated from AP, arg=IEEE::ReasonCode
+		msgDeassociationFailed,		// deassoc request failed, arg=IEEE::ReasonCode*
+		msgDeassociationDone,		// deassociated from AP, arg=IEEE::ReasonCode*
+		msgDeauthenticated,		// deauthenticated from AP, arg=IEEE::ReasonCode*
 		
-		msgNoiseLevelReport,		// reporting noise level, arg=int noiseLevel
-		msgLinkQualityReport,		// reporting link quality, arg=int qualityLevel
-		msgBeaconMissed,		// reporting missed beacon, arg=uint32_t howManyMissed
+		msgIncomingDataFrame,		// received a data frame, arg=mbuf_t
+		msgIncomingManagementFrame,	// received (unhandled) management frame, arg=mbuf_t
+		msgIncomingControlFrame,	// received control frame, arg=mbuf_t (this will rarely be used)
+		
+		msgNoiseLevelReport,		// reporting noise level, arg=int* noiseLevel
+		msgSignalStrengthReport,	// reporting signal strength, arg=int* signalStrength
+		msgChannelSwitch,		// reporting AP channel switch, arg=Channel* newChan
+		msgLinkQualityReport,		// reporting link quality, arg=int* qualityLevel
+		msgBeaconMissed,		// reporting missed beacon, arg=uint32_t* howManyMissed
+		msgConfigChanged,		// reporting a change in HW config (without being requested)
+						// arg=HardwareConfigType* type, client may call getConfig after this
 		
 		msgMaxMessageNumber		// XXX: used to check if msg num was out of bound
 	};

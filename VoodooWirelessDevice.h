@@ -29,14 +29,14 @@ protected:
 	ExpansionData*		reserved;	// reserved, for internal use only
 	
 	/* This is to be called by subclasses when it receives any frames from HW. "data" should be raw 802.11 frame */
-	void			incomingFrame		(RxFrameHeader hdr, mbuf_t data);
+	void			rx80211Frame		(RxFrameHeader hdr, mbuf_t data);
 	
 	/* The following function should be called by subclasses to report events.
 	   They will be relayed to clients by the superclass as appropriate */
 	void			report			(DeviceResponseMessage msg, void* arg);
 	
 	/* This function should be implemented by the subclass to output a raw 802.11 frame */
-	virtual IOReturn	txRawFrame		(mbuf_t m) = 0;
+	virtual IOReturn	tx80211Frame		(TxFrameHeader hdr, mbuf_t data) = 0;
 	
 public:
 	/* The public functions are intended to be used by the clients of this class */
@@ -49,9 +49,6 @@ public:
 	/* Functions for establishing connections etc. */
 	virtual IOReturn	startScan		(const ScanParameters* params,
 							 const IEEE::ChannelList* channels) = 0;
-	
-	virtual IOReturn	startChannelScan	(const ScanParameters* params,
-							 const Channel* channel) = 0;
 	
 	virtual IOReturn	abortScan		( ) = 0;
 	
