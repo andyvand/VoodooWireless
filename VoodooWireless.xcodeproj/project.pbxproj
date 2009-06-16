@@ -23,6 +23,7 @@
 		2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessDevice.h; sourceTree = "<group>"; };
 		2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooWirelessDevice.cpp; sourceTree = "<group>"; };
 		2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooIEEE80211_Types.h; sourceTree = "<group>"; };
+		2F39E68C0FE804B500051839 /* VoodooWirelessDevice_Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessDevice_Types.h; sourceTree = "<group>"; };
 		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32D94FD00562CBF700B6AF17 /* VoodooWireless.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoodooWireless.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -79,11 +80,12 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */,
 				2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */,
 				2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */,
+				2F39E68C0FE804B500051839 /* VoodooWirelessDevice_Types.h */,
 				2F03D70D0FE5213E003B961E /* VoodooIEEE80211.h */,
 				2F03D70E0FE5213E003B961E /* VoodooIEEE80211.cpp */,
-				2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */,
 				2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */,
 			);
 			name = Source;

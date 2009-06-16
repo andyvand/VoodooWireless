@@ -12,57 +12,34 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
-#include <IOKit/network/IOEthernetController.h>
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211.h"
-
-namespace org_voodoo_wireless {
-	
-	struct ScanParameters {
-		enum ScanType {	scanTypeActive, scanTypePassive, scanTypeBackground };
-		ScanType		scanType;	// Type of scan (active/passive..)
-		IEEE::PHYMode		scanPhyMode;	// 11a,b,g or n on which to scan
-		IEEE::MACAddress	bssid;		// BSSID to which scan is directed
-		OSSymbol*		ssid;		// SSID (network name) to which scan is directed
-		uint32_t		dwellTime;	// Time to stay on each channel (ms)
-		uint32_t		restTime;	// Time to wait between channels (ms)
-	};
-	
-	struct ScanResult {
-		IEEE::Channel		channel;	// channel on which this AP is operating
-		IEEE::Capability	capability;	// AP capability flags
-		IEEE::MACAddress	bssid;		// BSSID of access point
-		OSSymbol*		ssid;		// Network name
-		int			noiseLevel;	// background noise in dB
-		int			signalLevel;	// signal strength in dB (RSSI)
-		IEEE::RateSet		supportedRates;	// rates that the AP supports
-		uint32_t		beaconInterval;	// in ms
-		uint32_t		age;		// how old is this result (in ms)
-	};
-	
-	enum DeviceResponseMessages {
-		msgNull	= iokit_vendor_specific_msg(1),	// XXX: not used
-		msgPowerChanged,		// power was preemptively turned on/off (ie. not initiated by client)
-		msgScanAborted,			// scan was aborted (by HW, not as response to client request)
-		msgScanCompleted,		// scanning all specified chanels is completed
-		msgChannelScanned,		// scanning a specific channel is completed (arg=Channel*)
-		msgAuthenticationFailed,	// authentication step failed
-		msgAuthenticationDone,		// authentication step was done
-		msgAssociationFailed,		// association with AP failed, arg=IEEE::ReasonCode
-		msgAssociationDone,		// association was finished successfully
-		msgDeassociationFailed,		// deassoc request failed, arg=IEEE::ReasonCode
-		msgDeassociationDone,		// deassociated from AP, arg=IEEE::ReasonCode
-		msgDeauthenticated,		// deauthenticated from AP, arg=IEEE::ReasonCode
-		msgMaxMessageNumber		// XXX: used to check if msg num was out of bound
-	};
-};
+#include "VoodooWirelessDevice_Types.h"
 
 using namespace org_voodoo_wireless;
 
-class VoodooWirelessDevice
+class VoodooWirelessDevice : public IOService
 {
+	
+protected:
+	/* Data members */
+	
+	struct ExpansionData {			// reserved, for internal use only
+	};
+	ExpansionData*		reserved;	// reserved, for internal use only
+	
+	/* This is to be called by subclasses when it receives any frames from HW. "data" should be raw 802.11 frame */
+	void			incomingFrame		(RxFrameHeader hdr, mbuf_t data);
+	
+	/* The following function should be called by subclasses to report events.
+	   They will be relayed to clients by the superclass as appropriate */
+	void			report			(DeviceResponseMessage msg, void* arg);
+	
+	/* This function should be implemented by the subclass to output a raw 802.11 frame */
+	virtual IOReturn	txRawFrame		(mbuf_t m) = 0;
+	
 public:
-
+	/* The public functions are intended to be used by the clients of this class */
 	/* Functions to init / shutdown the HW */
 	virtual bool		allocateResources	( ) = 0;
 	virtual void		freeResources		( ) = 0;
@@ -78,6 +55,42 @@ public:
 	
 	virtual bool		abortScan		( ) = 0;
 	
+	virtual bool		associate		(const AssociationParameters* params) = 0;
+	
+	virtual bool		disasssociate		( ) = 0;
+	
+	/* Functions to send out data (NOT TO BE IMPLEMENTED by derived classes) */
+	IOReturn		txRaw80211Frame		(mbuf_t m);	// transmit a fully formed raw 802.11 frame
+	IOReturn		txData			(mbuf_t m);	// transmit an ethernet frame
+	
+	virtual IEEE::DataRate	getCurrentTxRate	();		// optionally implementable by hardware
+
+private:
+	/* The following are reserved slots for future expansion */
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 0);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 1);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 2);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 3);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 4);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 5);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 6);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 7);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 8);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 9);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 10);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 11);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 12);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 13);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 14);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 15);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 16);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 17);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 18);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 19);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 20);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 21);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 22);
+	OSMetaClassDeclareReservedUsed(VoodooWirelessDevice, 23);
 };
 
 #endif//_H_VOODOOWIRELESSDEVICE_H
