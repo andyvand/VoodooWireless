@@ -147,8 +147,6 @@ namespace IEEE {
 			/* 126 reserved */		ieExtendedCapabilities	= 127,
 			/* 128-220 reserved */		ieVendorSpecific	= 221,
 			/* 222-255 reserved */
-			ieAll			= 256	// XXX: not defined in IEEE80211, but
-							// we use it to signify all IEs as a group
 		};
 		uint8_t		id;		// type codes specified in enum ID
 		uint8_t		length;		// length in bytes of data that follows
@@ -259,11 +257,20 @@ namespace IEEE {
 		uint64_t		timestamp;
 		uint16_t		beaconInterval;
 		uint16_t		capability;
-		/* Then follow a variable number of information elements */
+		/* Then follows a variable number of information elements */
 		uint8_t			ieData[0];
 	} __packed;
 	
 	struct TxDataFrameHeader {
+		WiFiFrameHeader		hdr;
+		uint8_t			bssid[6];
+		uint8_t			sa[6]; // source MAC addr
+		uint8_t			da[6]; // dest MAC addr
+		uint16_t		seq;
+		uint8_t			data[0]; // variable length
+	} __packed;
+	
+	struct TxQoSDataFrameHeader {
 		WiFiFrameHeader		hdr;
 		uint8_t			bssid[6];
 		uint8_t			sa[6]; // source MAC addr

@@ -12,6 +12,7 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOWorkLoop.h>
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211.h"
 #include "VoodooWirelessDevice_Types.h"
@@ -21,8 +22,6 @@ using namespace org_voodoo_wireless;
 class VoodooWirelessDevice : public IOService
 {
 protected:
-	/* Data members */
-	
 	struct ExpansionData {};		// reserved, for internal use only
 	ExpansionData*		reserved;	// reserved, for internal use only
 	
@@ -70,6 +69,9 @@ public:
 	/* Functions to send out data (NOT TO BE IMPLEMENTED by derived classes) */
 	IOReturn		txRaw80211Frame		(mbuf_t m);	// transmit a fully formed raw 802.11 frame
 	IOReturn		txData			(mbuf_t m);	// transmit an ethernet frame
+	
+	/* Other misc. functions */
+	virtual IOWorkLoop*	getWorkLoop		( );		// can be optionally overriden
 	
 private:
 	/* The following are reserved slots for future expansion */

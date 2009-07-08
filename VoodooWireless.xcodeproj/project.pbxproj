@@ -10,8 +10,24 @@
 		2F03D70F0FE5213E003B961E /* VoodooIEEE80211.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F03D70E0FE5213E003B961E /* VoodooIEEE80211.cpp */; };
 		2F241B130FE251E20066F582 /* VoodooWirelessDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */; };
 		2F241B140FE251E20066F582 /* VoodooWirelessDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */; };
+		2F5422B31003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F5422B21003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp */; };
+		2F5422C71003196C00DBCDF0 /* VoodooWirelessCipher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F5422C61003196C00DBCDF0 /* VoodooWirelessCipher.cpp */; };
+		2FF0881110043A30006BE48B /* VoodooWirelessCipher_WEP.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2F5422AB100316B500DBCDF0 /* VoodooWirelessCipher_WEP.kext */; };
 		32D94FC80562CBF700B6AF17 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2FF0881610043A4B006BE48B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2FF0881110043A30006BE48B /* VoodooWirelessCipher_WEP.kext in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -24,6 +40,14 @@
 		2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooWirelessDevice.cpp; sourceTree = "<group>"; };
 		2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooIEEE80211_Types.h; sourceTree = "<group>"; };
 		2F39E68C0FE804B500051839 /* VoodooWirelessDevice_Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessDevice_Types.h; sourceTree = "<group>"; };
+		2F5422AB100316B500DBCDF0 /* VoodooWirelessCipher_WEP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoodooWirelessCipher_WEP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F5422AC100316B500DBCDF0 /* VoodooWirelessCipher_WEP-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "VoodooWirelessCipher_WEP-Info.plist"; sourceTree = "<group>"; };
+		2F5422B11003174E00DBCDF0 /* VoodooWirelessCipher_WEP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessCipher_WEP.h; sourceTree = "<group>"; };
+		2F5422B21003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooWirelessCipher_WEP.cpp; sourceTree = "<group>"; };
+		2F5422C0100318DB00DBCDF0 /* VoodooWirelessCipher.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoodooWirelessCipher.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F5422C1100318DB00DBCDF0 /* VoodooWirelessCipher-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "VoodooWirelessCipher-Info.plist"; sourceTree = "<group>"; };
+		2F5422C51003195700DBCDF0 /* VoodooWirelessCipher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessCipher.h; sourceTree = "<group>"; };
+		2F5422C61003196C00DBCDF0 /* VoodooWirelessCipher.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooWirelessCipher.cpp; sourceTree = "<group>"; };
 		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32D94FD00562CBF700B6AF17 /* VoodooWireless.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoodooWireless.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -31,6 +55,20 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		2F03D7060FE520CC003B961E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422A9100316B500DBCDF0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422BE100318DB00DBCDF0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -55,6 +93,8 @@
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				2F03D7090FE520CC003B961E /* VoodooIEEE80211-Info.plist */,
+				2F5422AC100316B500DBCDF0 /* VoodooWirelessCipher_WEP-Info.plist */,
+				2F5422C1100318DB00DBCDF0 /* VoodooWirelessCipher-Info.plist */,
 			);
 			name = VoodooWireless;
 			sourceTree = "<group>";
@@ -71,8 +111,10 @@
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				2F5422AB100316B500DBCDF0 /* VoodooWirelessCipher_WEP.kext */,
 				32D94FD00562CBF700B6AF17 /* VoodooWireless.kext */,
 				2F03D7080FE520CC003B961E /* VoodooIEEE80211.kext */,
+				2F5422C0100318DB00DBCDF0 /* VoodooWirelessCipher.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -80,6 +122,7 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				2F5422B01003173400DBCDF0 /* Ciphers */,
 				2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */,
 				2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */,
 				2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */,
@@ -89,6 +132,17 @@
 				2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */,
 			);
 			name = Source;
+			sourceTree = "<group>";
+		};
+		2F5422B01003173400DBCDF0 /* Ciphers */ = {
+			isa = PBXGroup;
+			children = (
+				2F5422C51003195700DBCDF0 /* VoodooWirelessCipher.h */,
+				2F5422C61003196C00DBCDF0 /* VoodooWirelessCipher.cpp */,
+				2F5422B11003174E00DBCDF0 /* VoodooWirelessCipher_WEP.h */,
+				2F5422B21003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp */,
+			);
+			name = Ciphers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -120,6 +174,41 @@
 			name = VoodooIEEE80211;
 			productName = VoodooIEEE80211;
 			productReference = 2F03D7080FE520CC003B961E /* VoodooIEEE80211.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		2F5422AA100316B500DBCDF0 /* VoodooWirelessCipher_WEP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F5422AF100316B600DBCDF0 /* Build configuration list for PBXNativeTarget "VoodooWirelessCipher_WEP" */;
+			buildPhases = (
+				2F5422A7100316B500DBCDF0 /* Sources */,
+				2F5422A8100316B500DBCDF0 /* Resources */,
+				2F5422A9100316B500DBCDF0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VoodooWirelessCipher_WEP;
+			productName = VoodooWirelessCipher_WEP;
+			productReference = 2F5422AB100316B500DBCDF0 /* VoodooWirelessCipher_WEP.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		2F5422BF100318DB00DBCDF0 /* VoodooWirelessCipher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F5422C4100318DC00DBCDF0 /* Build configuration list for PBXNativeTarget "VoodooWirelessCipher" */;
+			buildPhases = (
+				2F5422BC100318DB00DBCDF0 /* Sources */,
+				2F5422BD100318DB00DBCDF0 /* Resources */,
+				2F5422BE100318DB00DBCDF0 /* Frameworks */,
+				2FF0881610043A4B006BE48B /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VoodooWirelessCipher;
+			productName = VoodooWirelessCipher;
+			productReference = 2F5422C0100318DB00DBCDF0 /* VoodooWirelessCipher.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 		32D94FC30562CBF700B6AF17 /* VoodooWireless */ = {
@@ -156,12 +245,28 @@
 			targets = (
 				32D94FC30562CBF700B6AF17 /* VoodooWireless */,
 				2F03D7070FE520CC003B961E /* VoodooIEEE80211 */,
+				2F5422AA100316B500DBCDF0 /* VoodooWirelessCipher_WEP */,
+				2F5422BF100318DB00DBCDF0 /* VoodooWirelessCipher */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		2F03D7050FE520CC003B961E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422A8100316B500DBCDF0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422BD100318DB00DBCDF0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -194,6 +299,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F03D70F0FE5213E003B961E /* VoodooIEEE80211.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422A7100316B500DBCDF0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F5422B31003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2F5422BC100318DB00DBCDF0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F5422C71003196C00DBCDF0 /* VoodooWirelessCipher.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,6 +440,82 @@
 			};
 			name = Release;
 		};
+		2F5422AD100316B600DBCDF0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "VoodooWirelessCipher_WEP-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = org.voodoo.wireless.cipher.WEP;
+				MODULE_VERSION = 0.1;
+				PREBINDING = NO;
+				PRODUCT_NAME = VoodooWirelessCipher_WEP;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		2F5422AE100316B600DBCDF0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "VoodooWirelessCipher_WEP-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = org.voodoo.wireless.cipher.WEP;
+				MODULE_VERSION = 0.1;
+				PREBINDING = NO;
+				PRODUCT_NAME = VoodooWirelessCipher_WEP;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2F5422C2100318DC00DBCDF0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "VoodooWirelessCipher-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = org.voodoo.wireless.Cipher;
+				MODULE_VERSION = 1.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = VoodooWirelessCipher;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		2F5422C3100318DC00DBCDF0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "VoodooWirelessCipher-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = org.voodoo.wireless.Cipher;
+				MODULE_VERSION = 1.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = VoodooWirelessCipher;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -345,6 +542,24 @@
 			buildConfigurations = (
 				2F03D70A0FE520CD003B961E /* Debug */,
 				2F03D70B0FE520CD003B961E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2F5422AF100316B600DBCDF0 /* Build configuration list for PBXNativeTarget "VoodooWirelessCipher_WEP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2F5422AD100316B600DBCDF0 /* Debug */,
+				2F5422AE100316B600DBCDF0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2F5422C4100318DC00DBCDF0 /* Build configuration list for PBXNativeTarget "VoodooWirelessCipher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2F5422C2100318DC00DBCDF0 /* Debug */,
+				2F5422C3100318DC00DBCDF0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

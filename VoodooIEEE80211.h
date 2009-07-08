@@ -31,11 +31,15 @@ public:
 namespace org_voodoo_wireless {
 	class IEList {
 	private:
-		OSOrderedSet* _set;
+		OSData* _data;
+		IEList(); // constructor
 	public:
+		virtual ~IEList(); // destructor
+		/* Factory method to create new IEList using OSData */
 		virtual IEList* withData(OSData* data);
-		virtual OSData* getAsData(IEEE::IE::ID which);
-		virtual size_t	getNumElements();
+		/* Return an IE's data as OSData */
+		virtual OSData* get(IEEE::IE::ID which);
+		virtual OSData* getAll();
 	};
 }
 

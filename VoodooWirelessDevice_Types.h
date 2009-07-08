@@ -43,6 +43,10 @@ namespace org_voodoo_wireless {
 	struct AssociationParameters {
 		OSSymbol*		ssid;
 		IEEE::MACAddress	bssid;
+		IEEE::Channel		channel;
+		IEEE::Capability	capability;
+		IEEE::RateSet		supportedRates;	// That the AP supports
+		uint32_t		beaconInterval;
 		enum APMode { apModeAny, apModeAdHoc, apModeInfrastructure };
 		APMode			connectionMode;
 		enum AuthType {
@@ -108,9 +112,7 @@ namespace org_voodoo_wireless {
 	};
 	
 	enum PowerSavingModes {
-		powerSaveNone		= 1,		// always on
 		powerSaveAlwaysOn	= 1,
-		powerSaveCAM		= 1,		// just a different names for always on
 		powerSaveNormal		= 2,		// middle-level power saving
 		powerSaveMaximum	= 4		// maximum power savings
 	};
@@ -119,7 +121,9 @@ namespace org_voodoo_wireless {
 		/* Which kind of config to get/set, when get/setConfig is called. Any of this can be ignored */
 		configTxPower,			// param = int txPower
 		configRTSThreshold,		// param = uint32_t threshInBytes
-		configFragmentationThreshold,	// param =     "          "
+		configFragmentationThreshold,	// param = uint32_t threshInBytes
+		configShortRetryLimit,		// param = uint32_t numRetries
+		configLongRetryLimit,		// param = uint32_t numRetries
 		configCurrentTxRate,		// param = IEEE::DataRate
 		configRateSet,			// param = IEEE::RateSet [working rates, not HW supported rates]
 		configInterferenceMitigation,	// param = bool turnOn [HW dependent, usually bluetooth interference]
@@ -136,6 +140,7 @@ namespace org_voodoo_wireless {
 		OSString*		hardwareRevision;
 		OSString*		driverVersion;
 		OSString*		firmwareVersion;
+		IEEE::MACAddress	hardwareAddress;
 		IEEE::PHYModes		supportedModes;		// OR'd bits if it's multi-mode PHY
 		IEEE::ChannelList	supportedChannels;	// independent of locale
 		IEEE::RateSet		supportedRates;		// that hardware supports, not what it's using now
