@@ -12,7 +12,7 @@
 
 #include "VoodooWirelessCipher.h"
 
-/* These should be in a more generic header file when net80211 is ported */
+/* XXX: These should be in a more generic header file when net80211 is ported */
 #define IEEE80211_WEP_KEYLEN            5       /* 40bit */
 #define IEEE80211_WEP_IVLEN             3       /* 24bit */
 #define IEEE80211_WEP_KIDLEN            1       /* 1 octet */
@@ -28,8 +28,7 @@ class VoodooWirelessCipher_WEP : public VoodooWirelessCipher
 public:
 	class Key : public VoodooWirelessCipherKey {
 		friend class VoodooWirelessCipher_WEP;
-	public:
-		uint8_t	keyIndex;
+		/* no extra data right now */
 	};
 	
 	class Context : public VoodooWirelessCipherContext {

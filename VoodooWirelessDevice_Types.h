@@ -73,25 +73,21 @@ namespace org_voodoo_wireless {
 		IEEE::Channel		channel;
 		IEEE::DataRate		rate;
 		int			signalLevel;	// signal strength
-		bool			wepDecrypted;	// whether HW has already decrypted this frame
+		bool			decrypted;	// whether HW has already decrypted this frame
 	};
 	
 	struct TxFrameHeader {
 		IEEE::DataRate		rate;		// desired Tx rate (can be ignored by HW)
-		IEEE::WEPKey		wepKey;
+		bool			encrypted;	// whether this frame is already encrypted
 	};
 	
 	struct HardwareCapabilities {
 		/* Which features does the hardware support */
-		bool	WEP		:1;	// Usually true because software WEP is supported by superclass
-		bool	TKIP		:1;
-		bool	AES		:1;
-		bool	AES_CCM		:1;
-		bool	TKIP_MIC	:1;
-		bool	WPA1		:1;
-		bool	WPA2		:1;
-		bool	CKIP		:1;
-		bool	TSN		:1;	// WPA with WEP group key
+		bool	WEP		:1;	// the cipher. if 0, will fall back to software cipher
+		bool	TKIP		:1;	// the cipher. if 0, will fall back to software cipher
+		bool	AES_CCMP	:1;	// the cipher. if 0, will fall back to software cipher
+		bool	WPA1		:1;	// connecting to WPA1. if 0, WPA1 will not be available at all
+		bool	WPA2		:1;	// connecting to WPA2. if 0, WPA2 will not be available at all
 		
 		bool	AdHocMode	:1;
 		bool	HostAPMode	:1;
@@ -145,7 +141,7 @@ namespace org_voodoo_wireless {
 		IEEE::ChannelList	supportedChannels;	// independent of locale
 		IEEE::RateSet		supportedRates;		// that hardware supports, not what it's using now
 		unsigned int		maxTxPower;		// in dBm, independent of locale
-		enum SNRUnit { unit_dBm, unit_Percent, unit_mW, unit_Linear, unit_Logarithmic };
+		enum SNRUnit { unit_dBm, unit_Percent, unit_mW, unit_Other_Linear, unit_Other_Logarithmic };
 		SNRUnit			snrUnit;		// which units are noise/signal levels reported in
 		PowerSavingModes	powerSavingModes;	// which modes does hardware support
 		HardwareCapabilities	capabilities;
@@ -154,8 +150,10 @@ namespace org_voodoo_wireless {
 	enum DeviceResponseMessage {
 		msgNull	= iokit_vendor_specific_msg(1),	// XXX: not used
 		
-		msgPowerChanged,		// power was preemptively turned on/off (ie. not initiated by client)
-						// arg=bool turnedOn
+		msgPowerOff,			// HW power was turned off without being requested
+		msgPowerOn,			// HW power was turned on without being requested
+		msgRadioOff,			// PHY was turned off by user or power saving
+		msgRadioOn,			// PHY was turned on by user or power saving
 		
 		msgScanAborted,			// scan was aborted (by HW, not as response to client request)
 		msgScanCompleted,		// scanning all specified chanels is completed
@@ -168,10 +166,6 @@ namespace org_voodoo_wireless {
 		msgDeassociationFailed,		// deassoc request failed, arg=IEEE::ReasonCode*
 		msgDeassociationDone,		// deassociated from AP, arg=IEEE::ReasonCode*
 		msgDeauthenticated,		// deauthenticated from AP, arg=IEEE::ReasonCode*
-		
-		msgIncomingDataFrame,		// received a data frame, arg=mbuf_t
-		msgIncomingManagementFrame,	// received (unhandled) management frame, arg=mbuf_t
-		msgIncomingControlFrame,	// received control frame, arg=mbuf_t (this will rarely be used)
 		
 		msgNoiseLevelReport,		// reporting noise level, arg=int* noiseLevel
 		msgSignalStrengthReport,	// reporting signal strength, arg=int* signalStrength

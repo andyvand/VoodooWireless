@@ -26,6 +26,20 @@ bool MyClass::start(IOService* provider) {
 
 void MyClass::stop(IOService* provider) {
 	super::stop(provider);
+	IOLog("Unregistered VoodooWireless crypto module: %s\n", _cipherInfo.cipherName);
+}
+
+void MyClass::registerService(IOOptionBits options) {
+	super::registerService(options);
+	
+	/* Set cipher properties in the IORegistry, which will be used to find it */
+	setProperty(CIPHER_PROPERTY_NAME,	_cipherInfo.cipherName);
+	setProperty(CIPHER_PROPERTY_TYPE,	_cipherInfo.cipherType);
+	setProperty(CIPHER_PROPERTY_MICSIZE,	_cipherInfo.micSize);
+	setProperty(CIPHER_PROPERTY_HEADERSIZE,	_cipherInfo.headerSize);
+	setProperty(CIPHER_PROPERTY_TRAILERSIZE,_cipherInfo.trailerSize);
+	
+	IOLog("Registered VoodooWireless crypto module: %s\n", _cipherInfo.cipherName);
 }
 
 MyClass::Info MyClass::getInfo() const {

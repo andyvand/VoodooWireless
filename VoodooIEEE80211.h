@@ -16,18 +16,6 @@
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211_Types.h"
 
-class VoodooIEEE80211 : public IOService {
-	OSDeclareDefaultStructors(VoodooIEEE80211);
-	
-public:
-	/* IOKit related functions */
-	bool start(IOService* provider);
-	void stop(IOService* provider);
-	
-	/* IEEE functions */
-
-};
-
 namespace org_voodoo_wireless {
 	class IEList {
 	private:

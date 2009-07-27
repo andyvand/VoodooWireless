@@ -22,7 +22,7 @@ namespace IEEE {
 	};
 	
 	struct WEPKey {
-		uint8_t		index;		// 1 to 4
+		uint8_t		index;		// 0 to 3
 		OSString*	key;		// 40 or 104 bits (5 or 13 bytes)
 	};
 	
@@ -73,10 +73,6 @@ namespace IEEE {
 		rate36Mbps	= 72,	// 36 Mbps OFDM
 		rate48Mbps	= 96,	// 48 Mbps OFDM
 		rate54Mbps	= 108,	// 54 Mbps OFDM
-		/* Non-standard rates follow */
-		rate108Mbps	= 216,	// 108 Mbps OFDM 2x clock (turbo mode)
-		rate125Mbps	= 250,	// 125 Mbps OFDM (vendor proprietary or burst Tx)
-		rate130Mbps	= 260,	// 130 Mbps OFDM (vendor proprietary or burst Tx)
 		/* 11n MIMO rates to be added later */
 	};
 	

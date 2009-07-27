@@ -101,18 +101,20 @@ bool MyClass::start(IOService* provider) {
 	if (super::start(provider) == false)
 		return false;
 	
+	/* We must set these private properties before calling registerService()
+	 * Ideally a function should be called with these parameters to do the registration */
 	_cipherInfo.cipherType	= IEEE80211_CIPHER_WEP;
 	_cipherInfo.cipherName	= "WEP";
 	_cipherInfo.headerSize	= IEEE80211_WEP_IVLEN + IEEE80211_WEP_KIDLEN;
 	_cipherInfo.trailerSize	= IEEE80211_WEP_CRCLEN;
 	_cipherInfo.micSize	= 0;
 	
-	IOLog("Registering VoodooWireless crypto module: %s\n", _cipherInfo.cipherName);
+	registerService();
+	
 	return true;
 }
 
 void MyClass::stop(IOService* provider) {
-	IOLog("Unregistering VoodooWireless crypto module: %s\n", _cipherInfo.cipherName);
 	super::stop(provider);
 }
 
@@ -145,18 +147,17 @@ bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t m) {
 	Context*	ctx = (Context*) context;
 	
 	hdrlen = 24; /* XXX: For now we support only 802.11 non-qos data frames for which the header size is 24 */
-	
 	/*
 	 * Copy down 802.11 header and add the IV + KeyID + CRC32
 	 */
-	mbuf_prepend(&m, _cipherInfo.headerSize + _cipherInfo.trailerSize, MBUF_DONTWAIT);
+	mbuf_prepend(&m, _cipherInfo.headerSize, MBUF_DONTWAIT);
 	if (m == 0)
 		return 0;
 	ivp = (uint8_t*) mbuf_data(m);
 	bcopy(ivp + _cipherInfo.headerSize, ivp, hdrlen);
 	ivp += hdrlen;
 	
-	/*
+	/* 
 	 * XXX
 	 * IV must not duplicate during the lifetime of the key.
 	 * But no mechanism to renew keys is defined in IEEE 802.11
@@ -189,7 +190,7 @@ bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t m) {
 	ivp[3] = ctx->key->keyIndex;
 	
 	/*
-	 * Finally, do software encrypt if neeed.
+	 * Finally, do software encrypt.
 	 */
 	return wep_encrypt(ctx, m, hdrlen);
 }
@@ -255,7 +256,6 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 		}
 		if (mbuf_next(m) == NULL) {
 			if (data_len != 0) {		/* out of data */
-				IOLog("Out of data for WEP (data_len %zu)\n", data_len);
 				return false;
 			}
 			break;
@@ -278,9 +278,12 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 		icv[k] ^= S[(S[i] + S[j]) & 0xff];
 	}
 	
-	/* get pointer to where CRC should be in this packet and stuff it in */
-	pos = ((uint8_t*) mbuf_data(m)) + (mbuf_len(m) - IEEE80211_WEP_CRCLEN);
-	bcopy(icv, pos, IEEE80211_WEP_CRCLEN);
+	mbuf_prepend(&m, IEEE80211_WEP_CRCLEN, MBUF_DONTWAIT);
+	if (m == 0)
+		return false;
+
+	bcopy((uint8_t*) mbuf_data(m) + IEEE80211_WEP_CRCLEN, mbuf_data(m), mbuf_len(m) - IEEE80211_WEP_CRCLEN);
+	bcopy(icv, (uint8_t*) mbuf_data(m) + mbuf_len(m) - IEEE80211_WEP_CRCLEN, IEEE80211_WEP_CRCLEN);
 	
 	return true;
 #undef S_SWAP
