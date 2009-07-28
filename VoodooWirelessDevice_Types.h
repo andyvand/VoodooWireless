@@ -41,7 +41,7 @@ namespace org_voodoo_wireless {
 	};
 	
 	struct AssociationParameters {
-		OSSymbol*		ssid;
+		OSSymbol*		ssid;		// not needed usually, but providing anyway
 		IEEE::MACAddress	bssid;
 		IEEE::Channel		channel;
 		IEEE::Capability	capability;
@@ -85,6 +85,7 @@ namespace org_voodoo_wireless {
 		/* Which features does the hardware support */
 		bool	WEP		:1;	// the cipher. if 0, will fall back to software cipher
 		bool	TKIP		:1;	// the cipher. if 0, will fall back to software cipher
+		bool	TKIP_MIC	:1;	// hardware TKIP MIC support. if 0, fall back to full software TKIP
 		bool	AES_CCMP	:1;	// the cipher. if 0, will fall back to software cipher
 		bool	WPA1		:1;	// connecting to WPA1. if 0, WPA1 will not be available at all
 		bool	WPA2		:1;	// connecting to WPA2. if 0, WPA2 will not be available at all
@@ -128,9 +129,9 @@ namespace org_voodoo_wireless {
 	
 	struct HardwareInfo {
 		/* Note: strings should not have been allocated already, they will be allocated
-			 by the driver itself. Ownership is then passed to the client who must
+			 by the driver itself. Ownership is then passed to the superclass who must
 			 release the strings. In other words, this struct should be zero filled
-			 before being passed to provider. */
+			 before being passed to subclass. */
 		OSString*		manufacturer;
 		OSString*		model;
 		OSString*		hardwareRevision;
@@ -145,6 +146,8 @@ namespace org_voodoo_wireless {
 		SNRUnit			snrUnit;		// which units are noise/signal levels reported in
 		PowerSavingModes	powerSavingModes;	// which modes does hardware support
 		HardwareCapabilities	capabilities;
+		uint32_t		maxPacketSize;		// largest packet size which this HW can transmit
+		uint32_t		txQueueSize;		// how many packets can be sent to HW's tx queue
 	};
 	
 	enum DeviceResponseMessage {

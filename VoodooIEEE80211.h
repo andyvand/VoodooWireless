@@ -27,7 +27,7 @@ namespace org_voodoo_wireless {
 		virtual IEList* withData(OSData* data);
 		/* Return an IE's data as OSData */
 		virtual OSData* get(IEEE::IE::ID which);
-		virtual OSData* getAll();
+		virtual OSData* getRawAsData();
 	};
 }
 

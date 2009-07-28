@@ -10,20 +10,6 @@
 #include "VoodooIEEE80211.h"
 #include <IOKit/IOLib.h>
 
-OSDefineMetaClassAndStructors(VoodooIEEE80211, IOService);
-
-bool VoodooIEEE80211::start(IOService* provider) {
-	if ( !IOService::start(provider) )
-		return false;
-	registerService();
-	return true;
-}
-
-void VoodooIEEE80211::stop(IOService* provider) {
-	terminate();
-	return IOService::stop(provider);
-}
-
 namespace org_voodoo_wireless {
 	IEList::IEList() {
 		_data = 0;
@@ -51,7 +37,7 @@ namespace org_voodoo_wireless {
 		 * Scan the data, skipping over other IEs to find the one we need.
 		 * Yes, this is inefficient, but it's simple.
 		 */
-		uint8_t* byte = (uint8_t*) _data->getBytesNoCopy();
+		uint8_t* data = (uint8_t*) _data->getBytesNoCopy();
 		int offset = 0;
 		
 		while (offset < _data->getLength()) {

@@ -10,17 +10,54 @@
 #ifndef _H_VOODOOWIRELESSDEVICE_H
 #define _H_VOODOOWIRELESSDEVICE_H
 
+#include <sys/types.h>
+#include <sys/kpi_mbuf.h>
+
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOWorkLoop.h>
+
+#include <IOKit/apple80211/IO80211Controller.h>
+#include <IOKit/apple80211/IO80211Interface.h>
+#include <IOKit/apple80211/IO80211WorkLoop.h>
+#include <IOKit/network/IOOutputQueue.h>
+
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211.h"
 #include "VoodooWirelessDevice_Types.h"
 
 using namespace org_voodoo_wireless;
 
-class VoodooWirelessDevice : public IOService
+class VoodooWirelessDevice : public IO80211Controller
 {
+public:
+	/* NOTE: None of the public functions need to be implemented by subclasses. Proper implementations
+	 *       is already provided by this superclass */
+	
+	/* Basic IOKit functions */
+	virtual bool		start			( IOService* provider );
+	virtual void		stop			( IOService* provider );
+	IOReturn		registerWithPolicyMaker	( IOService* policyMaker );
+	
+	/* Network driver and apple80211 functions */
+	SInt32			apple80211Request	( UInt32 request_type, int request_number,
+							  IO80211Interface* interface, void* data );
+	IOReturn		enable			( IONetworkInterface* aNetif );
+	IOReturn		disable			( IONetworkInterface* aNetif );
+	IOOutputQueue*		createOutputQueue	( );
+	
+	UInt32			outputPacket		( mbuf_t m, void* param );
+
+	IOReturn		getMaxPacketSize	( UInt32 *maxSize ) const;
+	const OSString*		newVendorString		( ) const;
+	const OSString*		newModelString		( ) const;
+	const OSString*		newRevisionString	( ) const;
+	IOReturn		getHardwareAddress	( IOEthernetAddress* addr );
+	virtual IOReturn	setPromiscuousMode	( IOEnetPromiscuousMode mode );
+	virtual IOReturn	setMulticastMode	( IOEnetMulticastMode mode );
+	virtual IOReturn	setMulticastList	( IOEthernetAddress* addr, UInt32 len );
+	virtual SInt32		monitorModeSetEnabled	( IO80211Interface * interface, bool enabled, UInt32 dlt );
+	
 protected:
 	struct ExpansionData {};		// reserved, for internal use only
 	ExpansionData*		reserved;	// reserved, for internal use only
@@ -32,42 +69,38 @@ protected:
 	virtual IOReturn	turnPowerOff		( );	// Turn the card off
 	
 	/* Functions for establishing connections, scanning etc. */
-	virtual IOReturn	startScan		(const ScanParameters* params,
-							 const IEEE::ChannelList* channels);
+	virtual IOReturn	startScan		( const ScanParameters* params,
+							  const IEEE::ChannelList* channels );
 	
 	virtual void		abortScan		( );
-	
-	/* Following can be optionally overridden by subclasses, otherwise superclass will
-	   implement this to return scan results harvested from received probe responses.
-	   Return value = number of results (could be zero) */
-	virtual int		getScanResults		(ScanResult* results);
-	
-	virtual IOReturn	associate		(const AssociationParameters* params);
-	
+	virtual IOReturn	associate		( const AssociationParameters* params );
 	virtual IOReturn	disasssociate		( );
 	
 	/* Various configuration functions */
-	virtual void		getHardwareInfo		(HardwareInfo* info);
-	virtual IOReturn	getConfiguration	(HardwareConfigType type, void* param);
-	virtual IOReturn	setConfiguration	(HardwareConfigType type, void* param);
+	virtual void		getHardwareInfo		( HardwareInfo* info );
+	virtual IOReturn	getConfiguration	( HardwareConfigType type, void* param );
+	virtual IOReturn	setConfiguration	( HardwareConfigType type, void* param );
 	
-	/* The following function should be called by subclasses to report events.
-	   They will be relayed to Airport by the superclass as appropriate */
-	void			report			(DeviceResponseMessage msg, void* arg);
+	/* The following function should be called by subclasses to report events. */
+	void			report			( DeviceResponseMessage msg, void* arg );
 	
-	/* This is to be called by subclasses when it receives any frames from HW. "data" should be raw 802.11 frame */
-	void			frameReceived		(RxFrameHeader hdr, mbuf_t data);
+	/* This is to be called by subclasses when it receives any frames from HW.
+	 * "data" should be raw 802.11 frame.
+	 * During scanning, beacon or probe response frames should be passed via this function
+	 */
+	void			inputFrame		( RxFrameHeader hdr, mbuf_t data );
 	
-	/* This function should be called *instead of* the previous, if the subclass wants to pass ethernet frames */
-	void			ethernetFrameReceived	(RxFrameHeader hdr, mbuf_t data);
-	
-	/* This function must be implemented by the subclass to output a raw 802.11 frame */
-	virtual IOReturn	outputFrame		(TxFrameHeader hdr, mbuf_t data);
-	
-	/* This function can optionally be implemented by subclass if it wants to handle Ethernet frame tx itself */
-	virtual IOReturn	outputEthernetFrame	(TxFrameHeader hdr, mbuf_t data);	
+	/* This function must be implemented by the subclass to output a raw 802.11 frame.
+	 * Note that the mbuf_t could either be a single mbuf or a chain of 2 or more mbufs.
+	 * The passed mbuf_t becomes property of the driver which should free it when it is no longer needed.
+	 */
+	virtual IOReturn	outputFrame		( TxFrameHeader hdr, mbuf_t data );
 	
 private:
+	HardwareInfo		_hwInfo;
+	uint32_t		_flags;
+	IOSimpleLock*		_simpleLock;
+		
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 0);
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 1);

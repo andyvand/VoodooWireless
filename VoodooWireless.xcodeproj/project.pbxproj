@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2F06F19C101F2A7300B4D15F /* VoodooWirelessCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F06F19A101F2A7300B4D15F /* VoodooWirelessCommand.h */; };
 		2F241B130FE251E20066F582 /* VoodooWirelessDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */; };
 		2F241B140FE251E20066F582 /* VoodooWirelessDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */; };
 		2F5422B31003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F5422B21003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp */; };
@@ -36,6 +37,7 @@
 		2F03D70D0FE5213E003B961E /* VoodooIEEE80211.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooIEEE80211.h; sourceTree = "<group>"; };
 		2F03D70E0FE5213E003B961E /* VoodooIEEE80211.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooIEEE80211.cpp; sourceTree = "<group>"; };
 		2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessFamily.h; sourceTree = "<group>"; };
+		2F06F19A101F2A7300B4D15F /* VoodooWirelessCommand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessCommand.h; sourceTree = "<group>"; };
 		2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessDevice.h; sourceTree = "<group>"; };
 		2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooWirelessDevice.cpp; sourceTree = "<group>"; };
 		2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooIEEE80211_Types.h; sourceTree = "<group>"; };
@@ -140,6 +142,7 @@
 				2F03D70D0FE5213E003B961E /* VoodooIEEE80211.h */,
 				2F03D70E0FE5213E003B961E /* VoodooIEEE80211.cpp */,
 				2F39E5270FE7CEC500051839 /* VoodooIEEE80211_Types.h */,
+				2F06F19A101F2A7300B4D15F /* VoodooWirelessCommand.h */,
 			);
 			name = VoodooWireless;
 			sourceTree = "<group>";
@@ -154,6 +157,7 @@
 				2F241B130FE251E20066F582 /* VoodooWirelessDevice.h in Headers */,
 				2FDA7F5A101DAA1300DD932C /* VoodooIEEE80211.h in Headers */,
 				2FDA7F5C101DAA1D00DD932C /* VoodooIEEE80211_Types.h in Headers */,
+				2F06F19C101F2A7300B4D15F /* VoodooWirelessCommand.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
