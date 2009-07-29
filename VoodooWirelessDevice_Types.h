@@ -79,6 +79,7 @@ namespace org_voodoo_wireless {
 	struct TxFrameHeader {
 		IEEE::DataRate		rate;		// desired Tx rate (can be ignored by HW)
 		bool			encrypted;	// whether this frame is already encrypted
+		IEEE::WEPKey		wepKey;		// the key to use for WEP
 	};
 	
 	struct HardwareCapabilities {

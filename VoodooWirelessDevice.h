@@ -84,7 +84,7 @@ protected:
 	virtual IOReturn	setConfiguration	( HardwareConfigType type, void* param );
 	
 	/* The following function should be called by subclasses to report events. */
-	void			report			( DeviceResponseMessage msg, void* arg );
+	void			report			( DeviceResponseMessage msg, void* arg = 0 );
 	
 	/* This is to be called by subclasses when it receives any frames from HW.
 	 * "data" should be raw 802.11 frame.
@@ -112,6 +112,7 @@ private:
 	OSArray*		_scanResults;
 	uint32_t		_resultsPending;
 	IEEE::MACAddress	_currentBSSID;
+	IEEE::WEPKey		_currentWEPKey;
 	
 	void			workerThread(void* arg);
 	

@@ -216,10 +216,13 @@ MyClass::workerThread
 				break;
 			
 			case VoodooWirelessCommand::cmdAssociate:
-				if (associate((AssociationParameters*) cmd->arg0) != kIOReturnSuccess) {
+				AssociationParameters* assocparams = (AssociationParameters*) cmd->arg0;
+				if (associate(assocparams) != kIOReturnSuccess) {
 					DBG(dbgWarning, "CMD: Association command failed\n");
 				} else {
 					DBG(dbgInfo, "CMD: Association command completed\n");
+					bcopy(&assocparams->bssid, &_currentBSSID, 6);
+					_currentWEPKey = assocparams->wepKey;
 					_flags |= flagAssociating;
 					_staState = staInit;
 				}
@@ -332,7 +335,7 @@ MyClass::outputPacket
 	}
 	
 	if (mbuf_type(m) == MBUF_TYPE_FREE) {
-		DBG(dbgWarning, "Freed packet sent for Tx! Ignoring\n");
+		DBG(dbgWarning, "Freed packet sent for Tx! Ignoring.\n");
 		return kIOReturnOutputDropped;
 	}
 	
@@ -342,25 +345,34 @@ MyClass::outputPacket
 		return kIOReturnOutputDropped;
 	}
 	
-	/* Convert to 802.11 frame */
+	/*
+	 * We were sent an 802.3 ethernet frame. We'll convert this to an 802.11 wifi frame
+	 * and send this to the hardware.
+	 */
 	IEEE::MACAddress bssid, da, sa;
-	
 	IEEE::EthernetFrameHeader* etherhdr = (IEEE::EthernetFrameHeader*) mbuf_data(m);
 	
-	/* Get source/dest MAC addresses and BSSID from the ethernet frame or current assoc data */
+	/* Get source/dest MAC addresses and BSSID from the ethernet frame */
 	bcopy(&_currentBSSID,	(uint8_t*) &bssid, 6);
 	bcopy(&etherhdr->da,	(uint8_t*) &da,	   6);
 	bcopy(&etherhdr->sa,	(uint8_t*) &sa,    6);
 	
 	/* Tack on LLC/SNAP header */
-	mbuf_adj(m, 6);
 	const uint8_t llc_dat[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 	const uint8_t llc_arp[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
 	
 	if (etherhdr->etherType == ETHERTYPE_ARP)
-		mbuf_copyback(m, 0, 6, llc_arp, MBUF_DONTWAIT);
+		mbuf_copyback(m, 6, 6, llc_arp, MBUF_DONTWAIT);
 	else
-		mbuf_copyback(m, 0, 6, llc_dat, MBUF_DONTWAIT);			
+		mbuf_copyback(m, 6, 6, llc_dat, MBUF_DONTWAIT);			
+	
+	/* Remove extra 6 bytes from front.
+	 * Explanation: Ethernet frame format is: [addr1][addr2][ethertype][data..]
+	 *		Number of bytes:	     6      6        2
+	 * So total 14 bytes. We just overwrote addr2 with the LLC/SNAP header.
+	 * Now we have to remove addr1, so final format will be: [llc][ethertype][data]
+	 *							   6       2		*/
+	mbuf_adj(m, 6);
 	
 	/* Prepare the 802.11 header for a data frame */
 	IEEE::TxDataFrameHeader txhdr;
@@ -387,8 +399,19 @@ MyClass::outputPacket
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
-	return outputFrame(hdr, m);
+	hdr.wepKey	= _currentWEPKey;
+	return outputFrame( hdr, m );
 }
+
+
+
+void
+MyClass::inputFrame
+( RxFrameHeader hdr, mbuf_t data )
+{
+	return;
+}
+
 
 
 void
@@ -479,13 +502,6 @@ MyClass::report
 	};
 }
 
-
-void
-MyClass::inputFrame
-( RxFrameHeader hdr, mbuf_t data )
-{
-	return;
-}
 
 
 
