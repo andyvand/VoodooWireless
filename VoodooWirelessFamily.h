@@ -12,7 +12,14 @@
 
 /* Contains definitions useful in general */
 
-#define DBG(x)	IOLog(x);
+#define DBG(level, a, b...) { if (org_voodoo_wireless_debug & level)	\
+					IOLog("VoodooWireless:\t" a, ## b); }
+
+#define DBGC(level, a, b...) { if (org_voodoo_wireless_debug & level)	\
+					IOLog(a, ## b); }
+
 #define __packed __attribute__((__packed__))
+
+#define RELEASE(x)	if (x) { (x)->release(); (x) = 0; }
 
 #endif//_H_VOODOOWIRELESSFAMILY_H

@@ -16,11 +16,13 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOCommandPool.h>
 
 #include <IOKit/apple80211/IO80211Controller.h>
 #include <IOKit/apple80211/IO80211Interface.h>
 #include <IOKit/apple80211/IO80211WorkLoop.h>
 #include <IOKit/network/IOOutputQueue.h>
+#include <IOKit/network/IOGatedOutputQueue.h>
 
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211.h"
@@ -63,8 +65,8 @@ protected:
 	ExpansionData*		reserved;	// reserved, for internal use only
 	
 	/* Functions to init / shutdown the HW */
-	virtual IOReturn	allocateResources	( );	// Allocate hw rings, memory etc. needed for power up
-	virtual void		freeResources		( );	// Undo all allocations done in allocateResources()
+	virtual IOReturn	allocateResources	( IOService* provider ); // Allocate hw rings, memory etc. needed for power up
+	virtual void		freeResources		( IOService* provider ); // Undo all allocations done in allocateResources()
 	virtual IOReturn	turnPowerOn		( );	// Make the card ready for action
 	virtual IOReturn	turnPowerOff		( );	// Turn the card off
 	
@@ -74,7 +76,7 @@ protected:
 	
 	virtual void		abortScan		( );
 	virtual IOReturn	associate		( const AssociationParameters* params );
-	virtual IOReturn	disasssociate		( );
+	virtual IOReturn	disassociate		( );
 	
 	/* Various configuration functions */
 	virtual void		getHardwareInfo		( HardwareInfo* info );
@@ -99,8 +101,16 @@ protected:
 private:
 	HardwareInfo		_hwInfo;
 	uint32_t		_flags;
-	IOSimpleLock*		_simpleLock;
-		
+	IOLock*			_lock;
+	uint8_t			_staState;
+	IONetworkMedium*	_medium;
+	IO80211Interface*	_netif;
+	IOGatedOutputQueue*	_queue;
+	IO80211WorkLoop*	_workloop;
+	IOCommandPool*		_commandPool;
+	
+	void			workerThread(void* arg);
+	
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 0);
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 1);

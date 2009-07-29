@@ -254,7 +254,6 @@ namespace IEEE {
 		uint16_t		beaconInterval;
 		uint16_t		capability;
 		/* Then follows a variable number of information elements */
-		uint8_t			ieData[0];
 	} __packed;
 	
 	struct TxDataFrameHeader {
@@ -263,7 +262,7 @@ namespace IEEE {
 		uint8_t			sa[6]; // source MAC addr
 		uint8_t			da[6]; // dest MAC addr
 		uint16_t		seq;
-		uint8_t			data[0]; // variable length
+		// data follows...
 	} __packed;
 	
 	struct TxQoSDataFrameHeader {
@@ -273,16 +272,15 @@ namespace IEEE {
 		uint8_t			da[6]; // dest MAC addr
 		uint16_t		seq;
 		uint16_t		qos;
-		uint8_t			data[0]; // variable length
+		// data follows...
 	} __packed;
 	
 	struct EthernetFrameHeader {
 		uint8_t			da[6];
 		uint8_t			sa[6];
-		uint8_t			frameType[2]; // always = 0x80 0x00
-		uint8_t			data[0]; // variable length
+		uint16_t		frameType;
+		// data follows...
 	} __packed;
-	
 }
 }
 

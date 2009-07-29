@@ -10,16 +10,33 @@
 #pragma mark Defines and other stuff
 
 #include "VoodooWirelessDevice.h"
-#include <IOKit/network/IOGatedOutputQueue.h>
+#include "VoodooWirelessCommand.h"
 
-#define MyClass	VoodooWirelessDevice
+#define MyClass		VoodooWirelessDevice
+#define super		IO80211Controller
 
 enum {
 	// Flags for _flags member variable
 	flagResourcesAllocated	= 1,
 	flagPowerOn		= 2,
-	flagInterfaceEnabled	= 4
+	flagInterfaceEnabled	= 4,
+	flagScanning		= 8,
+	flagAssociating		= 16
 };
+
+enum {
+	dbgFatal	= 0x1,
+	dbgWarning	= 0x2,
+	dbgInfo		= 0x4
+};
+
+enum {
+	staInit,
+	staAuthenticated,
+	staAssociated
+};
+
+const int org_voodoo_wireless_debug = dbgFatal;
 
 
 //*********************************************************************************************************************
@@ -30,11 +47,64 @@ bool
 MyClass::start
 ( IOService* provider )
 {
-	_simpleLock = IOSimpleLockAlloc();
-	if (_simpleLock == 0)
+	if (!super::start(provider))
 		return false;
-	else
-		return true;
+	
+	/* Allocate a lock for ::enable() and ::disable() */
+	_lock = IOLockAlloc();
+	if (_lock == 0)
+		return false;
+	
+	/* Get some basic info about this hardware */
+	getHardwareInfo(&_hwInfo);
+	
+	/* Tell the system what kind of media we support */
+	OSDictionary* mediumDict = OSDictionary::withCapacity(1);
+	uint32_t maxSpeed = 0;
+	
+	if (_hwInfo.supportedModes & IEEE::dot11B)
+		maxSpeed = 11000000;
+
+	if (_hwInfo.supportedModes & IEEE::dot11A || _hwInfo.supportedModes & IEEE::dot11G)
+		maxSpeed = 54000000;
+	
+	if (_hwInfo.supportedModes & IEEE::dot11N)
+		maxSpeed = 300000000;
+	
+	_medium = IONetworkMedium::medium(kIOMediumIEEE80211Auto, maxSpeed, kIOMediumOptionHalfDuplex);
+	IONetworkMedium::addMedium(mediumDict, _medium);
+	publishMediumDictionary(mediumDict);
+	setSelectedMedium(_medium);
+	
+	/* Retain a reference to superclass's workloop */
+	_workloop = OSDynamicCast(IO80211WorkLoop, getWorkLoop());
+	_workloop->retain();
+	
+	/* Create the command pool for queueing HW subroutines */
+	_commandPool = IOCommandPool::withWorkLoop(_workloop);
+	
+	/* Now do HW specific initialization */
+	if (allocateResources(provider) != kIOReturnSuccess) {
+		DBG(dbgFatal, "Could not allocate hardware resources!\n");
+		return false;
+	} else {
+		_flags |= flagResourcesAllocated;
+	}
+	
+	/* HW resources are allocated, we can attach the interface now */
+	if (!attachInterface((IONetworkInterface**) &_netif, /* attach to DLIL = */ true)) {
+		DBG(dbgFatal, "Could not attach wireless interface!\n");
+		return false;
+	}
+	
+	/* Attach to bpf for tcpdump of raw 802.11 packets */
+	_netif->bpfAttach(/* DLT	 = */ 105,
+			  /* Header size = */ 30);
+	
+	/* And finally register this service */
+	registerService();
+	
+	return true;
 }
 
 
@@ -42,9 +112,24 @@ void
 MyClass::stop
 ( IOService* provider )
 {
-	if (_simpleLock)
-		IOSimpleLockFree(_simpleLock);
-	return;
+	freeResources(provider);
+	_flags &= ~(flagResourcesAllocated);
+	
+	if (_lock)
+		IOLockFree(_lock);
+	
+	RELEASE(_hwInfo.manufacturer);
+	RELEASE(_hwInfo.model);
+	RELEASE(_hwInfo.hardwareRevision);
+	RELEASE(_hwInfo.driverVersion);
+	RELEASE(_hwInfo.firmwareVersion);
+	RELEASE(_queue);
+	RELEASE(_netif);
+	RELEASE(_medium);
+	RELEASE(_commandPool);
+	RELEASE(_workloop);
+	
+	return super::stop(provider);
 }
 
 
@@ -61,13 +146,103 @@ MyClass::registerWithPolicyMaker
 }
 
 
+//*********************************************************************************************************************
 #pragma mark -
 #pragma mark Apple 802.11 ioctl
+//*********************************************************************************************************************
 SInt32
 MyClass::apple80211Request
 ( UInt32 request_type, int request_number, IO80211Interface* interface, void* data )
 {
 	return kIOReturnUnsupported;
+}
+
+
+/* This function is called when the background command-queue thread starts */
+void
+MyClass::workerThread
+(void* arg)
+{
+	VoodooWirelessCommand* cmd;
+	bool shouldExit = false;
+	DBG(dbgInfo, "Worker thread has started\n");
+	
+	while (!shouldExit)
+	{
+		/* Get one command from the queue */
+		cmd = OSDynamicCast(VoodooWirelessCommand, _commandPool->getCommand(true));
+		
+		/* Do what is supposed to be done */
+		switch (cmd->commandType) {
+			case VoodooWirelessCommand::cmdExitThread:
+				shouldExit = true;
+				break;
+				
+			case VoodooWirelessCommand::cmdPowerOn:
+				if (turnPowerOn() != kIOReturnSuccess) {
+					DBG(dbgFatal, "CMD: Turn power on command failed\n");
+				} else {
+					DBG(dbgInfo, "CMD: Card power turned ON\n");
+					_flags |= flagPowerOn;
+					_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+				}
+				break;
+				
+			case VoodooWirelessCommand::cmdPowerOff:
+				if (turnPowerOff() != kIOReturnSuccess) {
+					DBG(dbgFatal, "CMD: Turn power off command failed\n");
+				} else {
+					DBG(dbgInfo, "CMD: Card power turned OFF\n");
+					_flags &= ~(flagPowerOn);
+					_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+				}
+				break;
+			
+			case VoodooWirelessCommand::cmdStartScan:
+				if (startScan((ScanParameters*)    cmd->arg0,
+					      (IEEE::ChannelList*) cmd->arg1) != kIOReturnSuccess)
+				{
+					DBG(dbgWarning, "CMD: Start scan command failed\n");
+				} else {
+					DBG(dbgInfo, "CMD: Start scan command completed\n");
+					_flags |= flagScanning;
+				}
+				break;
+				
+			case VoodooWirelessCommand::cmdAbortScan:
+				abortScan();
+				_flags &= ~(flagScanning);
+				break;
+			
+			case VoodooWirelessCommand::cmdAssociate:
+				if (associate((AssociationParameters*) cmd->arg0) != kIOReturnSuccess) {
+					DBG(dbgWarning, "CMD: Association command failed\n");
+				} else {
+					DBG(dbgInfo, "CMD: Association command completed\n");
+					_flags |= flagAssociating;
+					_staState = staInit;
+				}
+				break;
+				
+			case VoodooWirelessCommand::cmdDisassociate:
+				if (disassociate() != kIOReturnSuccess) {
+					DBG(dbgWarning, "CMD: Disassociation command failed\n");
+				} else {
+					DBG(dbgInfo, "CMD: Disassociation command completed\n");
+				}
+				break;
+				
+			default:
+				/* Ignore unknown commands */
+				DBG(dbgWarning, "CMD: Unknown command type %u\n", cmd->commandType);
+				break;
+		};
+		
+		/* Destroy the command since its job is done */
+		RELEASE(cmd);
+	};
+	
+	DBG(dbgInfo, "Worker thread is exiting\n");
 }
 
 
@@ -77,22 +252,29 @@ IOReturn
 MyClass::enable
 ( IONetworkInterface* aNetif )
 {
-	IOSimpleLockLock(_simpleLock);		// Prevent re-entrancy
+	IOLockLock(_lock);			// Prevent re-entrancy
 	
 	if (_flags & flagInterfaceEnabled)	// Don't re-enable already enabled interface
 		goto fail;
 	if (!(_flags & flagResourcesAllocated))	// Make sure resources have been allocated already
 		goto fail;
+	if (!(_flags & flagPowerOn)) {		// Turn hw power on if needed
+		if (turnPowerOn() != kIOReturnSuccess)
+			goto fail;
+		_flags |= flagPowerOn;
+		_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+	}
 	
-	if (turnPowerOn() != kIOReturnSuccess)
-		goto fail;
+	_netif->setLinkState(kIO80211NetworkLinkDown);	// down until we associate
+	_queue->setCapacity(_hwInfo.txQueueSize);
 	
 	_flags |= flagInterfaceEnabled;
-	IOSimpleLockUnlock(_simpleLock);
+	IOLockUnlock(_lock);
 	return kIOReturnSuccess;
 	
 fail:
-	IOSimpleLockUnlock(_simpleLock);
+	DBG(dbgFatal, "Could not enable the interface!\n");
+	IOLockUnlock(_lock);
 	return kIOReturnError;
 }
 
@@ -101,30 +283,39 @@ IOReturn
 MyClass::disable
 ( IONetworkInterface* aNetif )
 {
-	IOSimpleLockLock(_simpleLock);		// Prevent re-entrancy
+	IOLockLock(_lock);			// Prevent re-entrancy
 	
 	if (!(_flags & flagInterfaceEnabled))	// Don't disable already disabled interface
 		goto fail;
 	
-	if (turnPowerOff() != kIOReturnSuccess)
-		goto fail;
+	_netif->setLinkState(kIO80211NetworkLinkDown);
+	_queue->setCapacity(0);
+	_queue->stop();
+	_queue->flush();
+	
+	if (_flags & flagPowerOn) {		// Turn off if needed
+		if (turnPowerOff() != kIOReturnSuccess)
+			goto fail;
+		_flags &= ~(flagPowerOn);
+		_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+	}
 	
 	_flags &= ~(flagInterfaceEnabled);
-	IOSimpleLockUnlock(_simpleLock);
+	IOLockUnlock(_lock);
 	return kIOReturnSuccess;
 	
 fail:
-	IOSimpleLockUnlock(_simpleLock);
+	DBG(dbgFatal, "Could not disable the interface!\n");
+	IOLockUnlock(_lock);
 	return kIOReturnError;
 }
 
 
-IOOutputQueue*
-MyClass::createOutputQueue
-( )
+IOOutputQueue* MyClass::createOutputQueue( )
 {
-	// Create a gated output queue with the 802.11 workloop, and size set to the HW's tx queue size
-	return IOGatedOutputQueue::withTarget(this, getWorkLoop(), _hwInfo.txQueueSize);
+	// Create a gated output queue with the 802.11 workloop, with size set to the HW's tx queue size
+	_queue = IOGatedOutputQueue::withTarget(this, getWorkLoop(), _hwInfo.txQueueSize);
+	return _queue;
 }
 
 
@@ -135,6 +326,22 @@ MyClass::outputPacket
 	// Send packets to endless pit!
 	freePacket(m);
 	return kIOReturnOutputDropped;
+}
+
+
+void
+MyClass::report
+( DeviceResponseMessage msg, void* arg )
+{
+	return;
+}
+
+
+void
+MyClass::inputFrame
+( RxFrameHeader hdr, mbuf_t data )
+{
+	return;
 }
 
 
@@ -181,18 +388,16 @@ SInt32		MyClass::monitorModeSetEnabled	( IO80211Interface * interface,
 #pragma mark -
 #pragma mark To be subclassed
 //*********************************************************************************************************************
-IOReturn	MyClass::allocateResources	( )					{ return kIOReturnUnsupported; }
-void		MyClass::freeResources		( )					{ return; }
+IOReturn	MyClass::allocateResources	( IOService* provider )			{ return kIOReturnUnsupported; }
+void		MyClass::freeResources		( IOService* provider )			{ return; }
 IOReturn	MyClass::turnPowerOn		( )					{ return kIOReturnUnsupported; }
 IOReturn	MyClass::turnPowerOff		( )					{ return kIOReturnUnsupported; }
 IOReturn	MyClass::startScan		( const ScanParameters* params,
 						  const IEEE::ChannelList* channels )	{ return kIOReturnUnsupported; }
 void		MyClass::abortScan		( )					{ return; }
 IOReturn	MyClass::associate		( const AssociationParameters* params )	{ return kIOReturnUnsupported; }
-IOReturn	MyClass::disasssociate		( )					{ return kIOReturnUnsupported; }
+IOReturn	MyClass::disassociate		( )					{ return kIOReturnUnsupported; }
 void		MyClass::getHardwareInfo	( HardwareInfo* info )			{ return; }
 IOReturn	MyClass::getConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
 IOReturn	MyClass::setConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
-void		MyClass::report			( DeviceResponseMessage msg, void* arg ){ return; }
-void		MyClass::inputFrame		( RxFrameHeader hdr, mbuf_t data )	{ return; }
 IOReturn	MyClass::outputFrame		( TxFrameHeader hdr, mbuf_t data )	{ return kIOReturnUnsupported; }
