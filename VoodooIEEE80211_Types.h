@@ -61,6 +61,7 @@ namespace IEEE {
 	enum DataRate {
 		rateIsBasic	= 128,	// basic rates should be OR'd with this value (ie. bit 7 = 1)
 		/* Rates are just uint32_t, in 0.5 Mbps units */
+		rateUnspecified	= 0,	// unknown speed
 		rate1Mbps	= 2,	// 1 Mbps CCK
 		rate2Mbps	= 4,	// 2 Mbps CCK
 		rate5Mbps	= 10,	// 5.5 Mbps CCK
@@ -278,7 +279,7 @@ namespace IEEE {
 	struct EthernetFrameHeader {
 		uint8_t			da[6];
 		uint8_t			sa[6];
-		uint16_t		frameType;
+		uint16_t		etherType;
 		// data follows...
 	} __packed;
 }

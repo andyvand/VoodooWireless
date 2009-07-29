@@ -111,6 +111,7 @@ private:
 	IOCommandPool*		_commandPool;
 	OSArray*		_scanResults;
 	uint32_t		_resultsPending;
+	IEEE::MACAddress	_currentBSSID;
 	
 	void			workerThread(void* arg);
 	

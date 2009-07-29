@@ -324,9 +324,70 @@ UInt32
 MyClass::outputPacket
 ( mbuf_t m, void* param )
 {
-	// Send packets to endless pit!
-	freePacket(m);
-	return kIOReturnOutputDropped;
+	if (_staState != staAssociated) {
+		// Send packets to endless pit!
+		DBG(dbgWarning, "Tx packet while not associated. Dropping\n");
+		freePacket(m);
+		return kIOReturnOutputDropped;
+	}
+	
+	if (mbuf_type(m) == MBUF_TYPE_FREE) {
+		DBG(dbgWarning, "Freed packet sent for Tx! Ignoring\n");
+		return kIOReturnOutputDropped;
+	}
+	
+	if (mbuf_pkthdr_len(m) <= 14) {
+		DBG(dbgWarning, "Tx packet too small (len=%u). Dropping.\n", mbuf_pkthdr_len(m));
+		freePacket(m);
+		return kIOReturnOutputDropped;
+	}
+	
+	/* Convert to 802.11 frame */
+	IEEE::MACAddress bssid, da, sa;
+	
+	IEEE::EthernetFrameHeader* etherhdr = (IEEE::EthernetFrameHeader*) mbuf_data(m);
+	
+	/* Get source/dest MAC addresses and BSSID from the ethernet frame or current assoc data */
+	bcopy(&_currentBSSID,	(uint8_t*) &bssid, 6);
+	bcopy(&etherhdr->da,	(uint8_t*) &da,	   6);
+	bcopy(&etherhdr->sa,	(uint8_t*) &sa,    6);
+	
+	/* Tack on LLC/SNAP header */
+	mbuf_adj(m, 6);
+	const uint8_t llc_dat[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+	const uint8_t llc_arp[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
+	
+	if (etherhdr->etherType == ETHERTYPE_ARP)
+		mbuf_copyback(m, 0, 6, llc_arp, MBUF_DONTWAIT);
+	else
+		mbuf_copyback(m, 0, 6, llc_dat, MBUF_DONTWAIT);			
+	
+	/* Prepare the 802.11 header for a data frame */
+	IEEE::TxDataFrameHeader txhdr;
+	bzero(&txhdr, sizeof(txhdr));
+	txhdr.hdr.type		= IEEE::WiFiFrameHeader::DataFrame;
+	txhdr.hdr.subtype	= IEEE::WiFiFrameHeader::Data;
+	txhdr.hdr.toDS		= 1; /* we are sending to a DS (ie. the AP) */
+	
+	bcopy(&bssid,	txhdr.bssid,	6);
+	bcopy(&da,	txhdr.da,	6);
+	bcopy(&sa,	txhdr.sa,	6);
+	
+	/* At this point, the mbuf has the data portion and txhdr has the 24 byte 802.11 header.
+	 * Now we want to prepend the 802.11 header to the mbuf
+	 */
+	mbuf_prepend(&m, sizeof(txhdr), MBUF_DONTWAIT);
+	if (!m) {
+		DBG(dbgWarning, "Could not prepend 802.11 frame header during Tx. Packet dropped.\n");
+		return kIOReturnOutputDropped;
+	}
+	mbuf_copyback(m, 0, sizeof(txhdr), &txhdr, MBUF_DONTWAIT);
+	
+	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
+	TxFrameHeader hdr;
+	hdr.rate	= IEEE::rateUnspecified;
+	hdr.encrypted	= false;
+	return outputFrame(hdr, m);
 }
 
 

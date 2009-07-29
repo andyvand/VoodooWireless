@@ -90,6 +90,7 @@ namespace org_voodoo_wireless {
 		bool	WPA1		:1;	// connecting to WPA1. if 0, WPA1 will not be available at all
 		bool	WPA2		:1;	// connecting to WPA2. if 0, WPA2 will not be available at all
 		
+		bool	StationMode	:1;	// should almost always be true
 		bool	AdHocMode	:1;
 		bool	HostAPMode	:1;
 		bool	MonitorMode	:1;
@@ -151,7 +152,7 @@ namespace org_voodoo_wireless {
 	};
 	
 	enum DeviceResponseMessage {
-		msgNull	= iokit_vendor_specific_msg(1),	// XXX: not used
+		msgNull,			// XXX: not used
 		
 		msgPowerOff,			// HW power was turned off without being requested
 		msgPowerOn,			// HW power was turned on without being requested
@@ -171,13 +172,10 @@ namespace org_voodoo_wireless {
 		
 		msgNoiseLevelReport,		// reporting noise level, arg=int* noiseLevel
 		msgSignalStrengthReport,	// reporting signal strength, arg=int* signalStrength
-		msgLinkQualityReport,		// reporting link quality, arg=int* qualityLevel
 		msgChannelSwitch,		// reporting AP channel switch, arg=Channel* newChan
 		msgBeaconMissed,		// reporting missed beacon, arg=uint32_t* howManyMissed
-		msgConfigChanged,		// reporting a change in HW config (without being requested)
+		msgConfigChanged		// reporting a change in HW config (without being requested)
 						// arg=HardwareConfigType* type, client may call getConfig after this
-		
-		msgMaxMessageNumber		// XXX: used to check if msg num was out of bound
 	};
 };
 
