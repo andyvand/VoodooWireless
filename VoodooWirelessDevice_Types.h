@@ -166,14 +166,13 @@ namespace org_voodoo_wireless {
 		msgAuthenticationDone,		// authentication step was done
 		msgAssociationFailed,		// association with AP failed, arg=IEEE::ReasonCode*
 		msgAssociationDone,		// association was finished successfully
-		msgDeassociationFailed,		// deassoc request failed, arg=IEEE::ReasonCode*
-		msgDeassociationDone,		// deassociated from AP, arg=IEEE::ReasonCode*
+		msgDisassociated,		// deassociated from AP, arg=IEEE::ReasonCode*
 		msgDeauthenticated,		// deauthenticated from AP, arg=IEEE::ReasonCode*
 		
 		msgNoiseLevelReport,		// reporting noise level, arg=int* noiseLevel
 		msgSignalStrengthReport,	// reporting signal strength, arg=int* signalStrength
-		msgChannelSwitch,		// reporting AP channel switch, arg=Channel* newChan
 		msgLinkQualityReport,		// reporting link quality, arg=int* qualityLevel
+		msgChannelSwitch,		// reporting AP channel switch, arg=Channel* newChan
 		msgBeaconMissed,		// reporting missed beacon, arg=uint32_t* howManyMissed
 		msgConfigChanged,		// reporting a change in HW config (without being requested)
 						// arg=HardwareConfigType* type, client may call getConfig after this

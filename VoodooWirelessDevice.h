@@ -103,11 +103,14 @@ private:
 	uint32_t		_flags;
 	IOLock*			_lock;
 	uint8_t			_staState;
+	IEEE::ReasonCode	_lastReasonCode;
 	IONetworkMedium*	_medium;
 	IO80211Interface*	_netif;
 	IOGatedOutputQueue*	_queue;
 	IO80211WorkLoop*	_workloop;
 	IOCommandPool*		_commandPool;
+	OSArray*		_scanResults;
+	uint32_t		_resultsPending;
 	
 	void			workerThread(void* arg);
 	

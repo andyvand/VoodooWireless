@@ -123,6 +123,7 @@ MyClass::stop
 	RELEASE(_hwInfo.hardwareRevision);
 	RELEASE(_hwInfo.driverVersion);
 	RELEASE(_hwInfo.firmwareVersion);
+	RELEASE(_scanResults);
 	RELEASE(_queue);
 	RELEASE(_netif);
 	RELEASE(_medium);
@@ -333,7 +334,88 @@ void
 MyClass::report
 ( DeviceResponseMessage msg, void* arg )
 {
-	return;
+	switch (msg) {
+		case msgPowerOn:
+		case msgRadioOn:
+			_flags |= flagPowerOn;
+			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+			break;
+			
+		case msgPowerOff:
+		case msgRadioOff:
+			_flags &= ~(flagPowerOn);
+			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+			break;			
+		
+		case msgAssociationDone:
+			_flags &= ~(flagAssociating);
+			_staState = staAssociated;
+			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
+			_netif->setLinkState(kIO80211NetworkLinkUp);
+			_queue->start();
+			break;
+			
+		case msgAssociationFailed:
+			_flags &= ~(flagAssociating);
+			if (arg)
+				_lastReasonCode = *((IEEE::ReasonCode*) arg);
+			else
+				_lastReasonCode = IEEE::reasonUnspecified;
+			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
+			break;
+			
+		case msgAuthenticationDone:
+			if (_staState == staInit) _staState = staAuthenticated;
+			break;
+			
+		case msgAuthenticationFailed:
+			_flags &= ~(flagAssociating);
+			_staState = staInit;
+			if (arg)
+				_lastReasonCode = *((IEEE::ReasonCode*) arg);
+			else
+				_lastReasonCode = IEEE::reasonUnspecified;
+			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
+			break;
+			
+		case msgDisassociated:
+			if (_staState == staAssociated)
+				_staState = staAuthenticated;
+			else
+				_staState = staInit;
+			if (arg)
+				_lastReasonCode = *((IEEE::ReasonCode*) arg);
+			else
+				_lastReasonCode = IEEE::reasonUnspecified;
+			_netif->setLinkState(kIO80211NetworkLinkDown);
+			_queue->stop();
+			_queue->flush();
+			break;
+			
+		case msgDeauthenticated:
+			_staState = staInit;
+			if (arg)
+				_lastReasonCode = *((IEEE::ReasonCode*) arg);
+			else
+				_lastReasonCode = IEEE::reasonUnspecified;
+			_netif->setLinkState(kIO80211NetworkLinkDown);
+			_queue->stop();
+			_queue->flush();
+			break;
+			
+		case msgScanAborted:
+			_flags &= ~(flagScanning);
+			break;
+			
+		case msgScanCompleted:
+			_flags &= ~(flagScanning);
+			_netif->postMessage(APPLE80211_M_SCAN_DONE);
+			break;
+			
+		default:
+			DBG(dbgWarning, "Unhandled message received from subclass: %u\n", msg);
+			break;
+	};
 }
 
 
