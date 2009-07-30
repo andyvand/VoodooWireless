@@ -228,11 +228,6 @@ namespace IEEE {
 		bool		order		:1;
 		
 		uint16_t	durationID	:16;
-		
-		/* The following is also present in all MAC headers, but we won't
-		 * put in here because its meaning depends on the particular frame type
-		 IOEthernetAddress	addr1;
-		 */
 	} __packed;
 	
 	struct SequenceControl {
@@ -262,6 +257,15 @@ namespace IEEE {
 		uint8_t			bssid[6];
 		uint8_t			sa[6]; // source MAC addr
 		uint8_t			da[6]; // dest MAC addr
+		uint16_t		seq;
+		// data follows...
+	} __packed;
+	
+	struct RxDataFrameHeader {
+		WiFiFrameHeader		hdr;
+		uint8_t			da[6];
+		uint8_t			bssid[6];
+		uint8_t			sa[6];
 		uint16_t		seq;
 		// data follows...
 	} __packed;

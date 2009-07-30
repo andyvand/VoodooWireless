@@ -407,9 +407,42 @@ MyClass::outputPacket
 
 void
 MyClass::inputFrame
-( RxFrameHeader hdr, mbuf_t data )
+( RxFrameHeader hdr, mbuf_t m )
 {
-	return;
+	IEEE::RxDataFrameHeader*	rxhdr;
+	IEEE::EthernetFrameHeader	ethhdr;
+	
+	rxhdr = (IEEE::RxDataFrameHeader*) mbuf_data(m);
+	
+	if (rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame &&
+	    rxhdr->hdr.subtype	== IEEE::WiFiFrameHeader::Data)
+	{
+		/*
+		 * We got sent an 802.11 frame. Convert to Ethernet II frame and pass to OS X
+		 *
+		 * Format of input:	[Wifi hdr][LLC hdr][Ethertype][data...]
+		 *			    24        6         2
+		 * Format of output:	[Ethernet hdr][ethertype][data...]
+		 *			      12            2					*/
+		
+		/* Copy source and dest MAC addresses */
+		bcopy(rxhdr->sa, ethhdr.sa, 6);
+		bcopy(rxhdr->da, ethhdr.da, 6);
+		
+		/* We don't need Wifi header anymore, so trim bytes from front so that we are
+		 * left with 14 bytes before the 'data' part starts. */
+		mbuf_adj(m, 24 - 6);
+		
+		/* Now overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
+		mbuf_copyback(m, 0, 12, &ethhdr, MBUF_DONTWAIT);
+		
+		/* Our job is now done. Pass it up the networking stack */
+		inputPacket(m);
+	} else {
+		DBG(dbgWarning, "Unhandled frame type %u subtype %u received. Dropped.\n",
+		    rxhdr->hdr.type, rxhdr->hdr.subtype);
+		freePacket(m);
+	}
 }
 
 
