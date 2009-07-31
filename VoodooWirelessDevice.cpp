@@ -536,11 +536,19 @@ MyClass::scanResultsAreSimilar
 		    (char*) b->asr_bssid, 6) != 0)
 		return false;
 	
-	/* If SSID and BSSID match, then check capability flags */
+	/* Check if it's the same channel */
+	if (a->asr_channel.channel != b->asr_channel.channel)
+		return false;
+	
+	/* .. with the same flags */
+	if (a->asr_channel.flags != b->asr_channel.flags)
+		return false;
+	
+	/* Check capability flags */
 	if (a->asr_cap != b->asr_cap)
 		return false;
 	
-	/* SSID, BSSID and Cap flags match. Lastly match on no. of supported rates */
+	/* Channel, SSID, BSSID and Cap flags match. Lastly match on no. of supported rates */
 	if (a->asr_nrates != b->asr_nrates)
 		return false;
 	
@@ -549,7 +557,7 @@ MyClass::scanResultsAreSimilar
 		if (a->asr_rates[i] != b->asr_rates[i])
 			return false;
 	
-	/* SSID, BSSID, cap flags and supported rates ALL match then it's the same goddamn thing */
+	/* Channel, SSID, BSSID, cap flags and supported rates ALL match then it's the same goddamn thing */
 	return true;
 }
 
