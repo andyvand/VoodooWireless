@@ -12,6 +12,9 @@
 #include "VoodooWirelessDevice.h"
 #include "VoodooWirelessCommand.h"
 
+#include <libkern/c++/OSData.h>
+#include <libkern/c++/OSSymbol.h>
+
 #define MyClass		VoodooWirelessDevice
 #define super		IO80211Controller
 
@@ -413,12 +416,13 @@ MyClass::inputFrame
 	IEEE::EthernetFrameHeader	ethhdr;
 	
 	rxhdr = (IEEE::RxDataFrameHeader*) mbuf_data(m);
+	bcopy(&hdr, &_lastRxFrameHeader, sizeof(hdr));	// save for later use during apple80211request etc.
 	
-	if (rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame &&
-	    rxhdr->hdr.subtype	== IEEE::WiFiFrameHeader::Data)
+	if ((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame) &&
+	    (rxhdr->hdr.subtype	== IEEE::WiFiFrameHeader::Data))
 	{
 		/*
-		 * We got sent an 802.11 frame. Convert to Ethernet II frame and pass to OS X
+		 * We got sent an 802.11 data frame. Convert to Ethernet II frame and pass to OS X
 		 *
 		 * Format of input:	[Wifi hdr][LLC hdr][Ethertype][data...]
 		 *			    24        6         2
@@ -430,7 +434,7 @@ MyClass::inputFrame
 		bcopy(rxhdr->da, ethhdr.da, 6);
 		
 		/* We don't need Wifi header anymore, so trim bytes from front so that we are
-		 * left with 14 bytes before the 'data' part starts. */
+		 * left with 6 bytes before LLC header (which will all be overwritten). */
 		mbuf_adj(m, 24 - 6);
 		
 		/* Now overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
@@ -438,6 +442,19 @@ MyClass::inputFrame
 		
 		/* Our job is now done. Pass it up the networking stack */
 		inputPacket(m);
+	} else
+	if ((_flags & flagScanning) &&	/* If a scan is in progress */
+	    
+	    (((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::ManagementFrame) && 	    /* And we got a probe response */
+	     (rxhdr->hdr.subtype== IEEE::WiFiFrameHeader::ProbeResponse)) ||
+	    
+	    ((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::ManagementFrame) &&	    /* Or a beacon */
+	     (rxhdr->hdr.subtype== IEEE::WiFiFrameHeader::Beacon))))
+	{
+		/* Then we have a scan result. Store this */
+		
+		handleScanResultFrame(hdr, m);
+		
 	} else {
 		DBG(dbgWarning, "Unhandled frame type %u subtype %u received. Dropped.\n",
 		    rxhdr->hdr.type, rxhdr->hdr.subtype);
@@ -446,6 +463,199 @@ MyClass::inputFrame
 }
 
 
+void
+MyClass::handleScanResultFrame
+( RxFrameHeader hdr, mbuf_t m )
+{
+	/* 
+	 * We received a probe response or a beacon during a scan. Handle it!
+	 *
+	 * NOTE: The difference between a beacon and a probe response is minimal, typically only
+	 *	 in the framecontrol bytes for which the subtype field is different. Beacons may
+	 *	 also send more or less info than a probe response, in which the IEs sent are as
+	 *	 requested in the probe request. Bottomlie: For our purpose, we can treat them
+	 *	 exactly the same way.
+	 */
+	
+	/* Allocate storage for the new result */
+	OSData* scanresult = OSData::withCapacity(sizeof(apple80211_scan_result));
+	if (!scanresult) {
+		DBG(dbgWarning, "Could not allocate OSData to store scan result\n");
+		return;
+	}
+	
+	/* Convert and store into the allocated OSData */
+	probeResponseToScanResult(hdr, m, (apple80211_scan_result*) scanresult->getBytesNoCopy());
+	
+	/* Now compare with each item in the scan results array to make sure this is not a duplicate */
+	OSData* s; bool found = false;
+	apple80211_scan_result* sr;
+	for (int i = 0; i < _scanResults->getCount(); i++) {
+		
+		s  = OSDynamicCast(OSData, _scanResults->getObject(i));
+		sr = (apple80211_scan_result*) s->getBytesNoCopy();
+		
+		if (scanResultsAreSimilar(sr,
+					  (apple80211_scan_result*) scanresult->getBytesNoCopy()))
+		{
+			found = true;
+			break;
+		}
+	}
+	
+	if (found) {
+		DBG(dbgWarning, "Skipping duplicate scan result\n");
+		RELEASE(scanresult);
+		return;
+	}
+	
+	_scanResults->setObject(scanresult);
+	_resultsPending = _scanResults->getCount();	// at this point we've (hopefully) not yet started sending
+							// results so this should be safe
+	RELEASE(scanresult); // adding to array retains a reference
+}
+
+
+
+bool
+MyClass::scanResultsAreSimilar
+( const apple80211_scan_result* a, const apple80211_scan_result* b )
+{
+	/* This function will check for "equality" of two scan results.
+	 * The definition of equality is debatable.
+	 */
+	
+	/* First test: SSID should be same */
+	if (strncmp((char*) a->asr_ssid,
+		    (char*) b->asr_ssid,
+		    min(a->asr_ssid_len, b->asr_ssid_len)) != 0)
+		return false;
+	
+	/* Next, BSSID should match */
+	if (strncmp((char*) a->asr_bssid,
+		    (char*) b->asr_bssid, 6) != 0)
+		return false;
+	
+	/* If SSID and BSSID match, then check capability flags */
+	if (a->asr_cap != b->asr_cap)
+		return false;
+	
+	/* SSID, BSSID and Cap flags match. Lastly match on no. of supported rates */
+	if (a->asr_nrates != b->asr_nrates)
+		return false;
+	
+	/* At this stage, no. of supported rates are the same, so the last thing we'll do is match those */
+	for (int i = 0; i < a->asr_nrates; i++)
+		if (a->asr_rates[i] != b->asr_rates[i])
+			return false;
+	
+	/* SSID, BSSID, cap flags and supported rates ALL match then it's the same goddamn thing */
+	return true;
+}
+
+
+
+IOReturn
+MyClass::probeResponseToScanResult
+( RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret)
+{
+	/*
+	 * This function takes a frame received from the hardware, parses it and gets the
+	 * IEEE 802.11 MAC frame from it. Then it parses that frame, and extracts relevant
+	 * data out of it and stuffs the given scan result pointer with the values.
+	 */
+	if (!ret)
+		return kIOReturnBadArgument;
+	
+	uint8_t* data = (uint8_t*) mbuf_data(m);
+	IEEE::ProbeResponseFrameHeader* resp = (IEEE::ProbeResponseFrameHeader*) data;
+	
+	bzero(ret, sizeof(apple80211_scan_result));
+	
+	ret->version		= APPLE80211_VERSION;
+	ret->asr_channel.channel= hdr.channel.number;
+	ret->asr_channel.flags	=	APPLE80211_C_FLAG_10MHZ |
+					APPLE80211_C_FLAG_2GHZ  |
+					APPLE80211_C_FLAG_ACTIVE;
+	ret->asr_beacon_int	= resp->beaconInterval;
+	ret->asr_cap		= resp->capability;
+	ret->asr_noise		= -90; // default for now
+	ret->asr_rssi		= todBm(hdr.signalLevel);
+	ret->asr_age		= 0; // XXX
+	ret->asr_ie_len		= mbuf_pkthdr_len(m) - sizeof(IEEE::ProbeResponseFrameHeader);
+	
+	bcopy(resp->mgmt.bssid, ret->asr_bssid, 6);
+	
+	/* Process info elements */
+	IEEE::IE* infoelem = (IEEE::IE*) (resp + 1);
+	int		i;
+	uint8_t*	infoelemData;
+	
+	/* First copy all IEs into the scan result */
+	if (ret->asr_ie_len > 0) {
+		ret->asr_ie_data = IOMalloc(ret->asr_ie_len);
+		bcopy(infoelem, ret->asr_ie_data, ret->asr_ie_len);
+	}
+	
+	/* Iterate over each info element, setting relevant properties in the result */
+	while (((uint8_t*) infoelem) - data < mbuf_pkthdr_len(m)) { /* (while next infoelem is within frame length) */
+		
+		infoelemData = (uint8_t*) (infoelem + 1);
+		
+		switch (infoelem->id) {
+			case IEEE::IE::ieSSID:
+				/* Set the SSID length, zero out any existing SSID and copy the new one */
+				ret->asr_ssid_len = infoelem->length;
+				bzero(ret->asr_ssid, APPLE80211_MAX_SSID_LEN);
+				bcopy(infoelemData, ret->asr_ssid, infoelem->length);
+				break;
+			case IEEE::IE::ieDSParamSet:
+				/* This contains the current channel number for DSSS PHYs
+				 * In this case we should set the result's channel number
+				 * to whatever is sent in this info elem instead of the
+				 * channel on which the frame was received (because the
+				 * interference between channels can cause requests to be
+				 * received even on adjacent channels) */
+				ret->asr_channel.channel = *infoelemData;
+				break;
+			case IEEE::IE::ieSupportedRates:
+			case IEEE::IE::ieExtendedSupportedRates:
+				/* Each 'rate' is stored as 1 byte */
+				for (i = 0; i < (infoelem->length); i++)
+					ret->asr_rates[ret->asr_nrates++] = infoelemData[i];
+				break;
+		};
+		
+		infoelem = (IEEE::IE*) (((uint8_t*) infoelem) + infoelem->length + 2);
+	};
+	return kIOReturnSuccess;
+}
+
+
+int
+MyClass::todBm
+( int val )
+{
+	int ret;
+	switch (_hwInfo.snrUnit) {
+		case HardwareInfo::unit_dBm:
+			return val;
+		case HardwareInfo::unit_Percent:
+			/* Map 0% to 100% to -120 dBm to -20 dBm, clipped */
+			ret = (0 - (100 - val)) - 20;
+			return max(-120, min(ret, -20));
+		case HardwareInfo::unit_mW:
+			/* This is tricky business, I choose to take the shorter route */
+			/* Map 0 to 50 mW to -120 to -20 dB, clipped */
+			ret = (0 - (100 - val * 20)) - 20;
+			return max(-120, min(ret, -20));
+		case HardwareInfo::unit_Other_Linear:
+		case HardwareInfo::unit_Other_Logarithmic:
+		default:
+			/* We have no basis... TODO: Improve it later */
+			return val;
+	};
+}
 
 void
 MyClass::report

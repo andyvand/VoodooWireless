@@ -113,8 +113,13 @@ private:
 	uint32_t		_resultsPending;
 	IEEE::MACAddress	_currentBSSID;
 	IEEE::WEPKey		_currentWEPKey;
+	RxFrameHeader		_lastRxFrameHeader;
 	
+	int			todBm(int val);
 	void			workerThread(void* arg);
+	void			handleScanResultFrame(RxFrameHeader hdr, mbuf_t m);
+	IOReturn		probeResponseToScanResult(RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret);
+	bool			scanResultsAreSimilar(const apple80211_scan_result* a, const apple80211_scan_result* b);
 	
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 0);

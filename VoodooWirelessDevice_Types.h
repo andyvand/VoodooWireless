@@ -36,7 +36,7 @@ namespace org_voodoo_wireless {
 		int			signalLevel;	// signal strength
 		IEEE::RateSet		supportedRates;	// rates that the AP supports
 		uint32_t		beaconInterval;	// in ms
-		uint32_t		age;		// how old is this result (in ms)
+		AbsoluteTime		gotAt;		// when this result was received/stored
 		IEList*			extraIEs;	// extra information elements sent in the probe response
 	};
 	
@@ -47,6 +47,8 @@ namespace org_voodoo_wireless {
 		IEEE::Capability	capability;
 		IEEE::RateSet		supportedRates;	// That the AP supports
 		uint32_t		beaconInterval;
+		int			noiseLevel;	// might be needed by HW to set antenna gain etc.
+		int			signalLevel;	// ditto
 		enum APMode { apModeAny, apModeAdHoc, apModeInfrastructure };
 		APMode			connectionMode;
 		enum AuthType {

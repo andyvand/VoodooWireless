@@ -49,7 +49,10 @@ namespace IEEE {
 			requiresDFS		= 0x40,	// dynamic frequency selection for 11a
 			supportsHostAPMode	= 0x80,
 			supportsAdHocMode	= 0x100,
-			extensionChannelIsAbove	= 0x200 // in 11n mode, if ext. ch is above this ch. (otherwise below)
+			extensionChannelIsAbove	= 0x200, // in 11n mode, if ext. ch is above this ch. (otherwise below)
+			
+			default11BGChannelFlags	= (supportsActiveScanning | band2GHz | width10MHz),
+			default11AChannelFlags	= (supportsActiveScanning | band5GHz | width10MHz)
 		};
 	};
 	
@@ -147,7 +150,7 @@ namespace IEEE {
 		};
 		uint8_t		id;		// type codes specified in enum ID
 		uint8_t		length;		// length in bytes of data that follows
-		uint8_t		data[0];	// variable length up to 255 bytes
+		// variable length data follows...
 	} __packed;
 	
 	union Capability {

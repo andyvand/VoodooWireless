@@ -24,7 +24,7 @@ namespace org_voodoo_wireless {
 	public:
 		virtual ~IEList(); // destructor
 		/* Factory method to create new IEList using OSData */
-		virtual IEList* withData(OSData* data);
+		static IEList* withData(OSData* data);
 		/* Return an IE's data as OSData */
 		virtual OSData* get(IEEE::IE::ID which);
 		virtual OSData* getRawAsData();
