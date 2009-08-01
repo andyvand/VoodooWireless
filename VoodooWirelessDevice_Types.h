@@ -81,26 +81,23 @@ namespace org_voodoo_wireless {
 	struct TxFrameHeader {
 		IEEE::DataRate		rate;		// desired Tx rate (can be ignored by HW)
 		bool			encrypted;	// whether this frame is already encrypted
-		IEEE::WEPKey		wepKey;		// the key to use for WEP
 	};
 	
 	struct HardwareCapabilities {
 		/* Which features does the hardware support */
 		bool	WEP		:1;	// the cipher. if 0, will fall back to software cipher
 		bool	TKIP		:1;	// the cipher. if 0, will fall back to software cipher
-		bool	TKIP_MIC	:1;	// hardware TKIP MIC support. if 0, fall back to full software TKIP
 		bool	AES_CCMP	:1;	// the cipher. if 0, will fall back to software cipher
 		bool	WPA1		:1;	// connecting to WPA1. if 0, WPA1 will not be available at all
 		bool	WPA2		:1;	// connecting to WPA2. if 0, WPA2 will not be available at all
 		
-		bool	StationMode	:1;	// should almost always be true
 		bool	AdHocMode	:1;
 		bool	HostAPMode	:1;
 		bool	MonitorMode	:1;
 		
 		bool	PowerManagement	:1;	// active 802.11 power management, not IOKit power management
 		bool	TxPowerManagement:1;	// transmit power can be set
-		bool	WakeOneWireless	:1;
+		bool	WakeOnWireless	:1;
 		
 		bool	ShortSlot	:1;
 		bool	ShortPreamble	:1;

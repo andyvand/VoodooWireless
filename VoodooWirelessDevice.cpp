@@ -17,6 +17,7 @@
 
 #define MyClass		VoodooWirelessDevice
 #define super		IO80211Controller
+#define IOCTL_GET_REQ	3223349705UL // magic number alert!
 
 enum {
 	// Flags for _flags member variable
@@ -158,6 +159,217 @@ SInt32
 MyClass::apple80211Request
 ( UInt32 request_type, int request_number, IO80211Interface* interface, void* data )
 {
+	if (request_type == IOCTL_GET_REQ)
+		return apple80211Request_GET(request_number, data);
+	else
+		return apple80211Request_SET(request_number, data);
+}
+
+
+IOReturn
+MyClass::apple80211Request_GET
+( int request_number, void* data )
+{
+#define IOC_STRUCT(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
+	
+	switch (request_number)
+	{
+		case APPLE80211_IOC_CARD_CAPABILITIES:
+		{
+			IOC_STRUCT(apple80211_capability_data);
+			
+			uint32_t caps;
+			
+			if (_hwInfo.capabilities.WEP)		caps |= APPLE80211_CAP_WEP;
+			if (_hwInfo.capabilities.TKIP)		caps |= APPLE80211_CAP_TKIP;
+			if (_hwInfo.capabilities.AES_CCMP)	caps |= APPLE80211_CAP_AES_CCM;
+			if (_hwInfo.capabilities.WPA1)		caps |= APPLE80211_CAP_WPA1;
+			if (_hwInfo.capabilities.WPA2)		caps |= APPLE80211_CAP_WPA2;
+			
+			if (_hwInfo.capabilities.WPA1 &&
+			    _hwInfo.capabilities.WPA2)		caps |= APPLE80211_CAP_WPA;
+			
+			if (_hwInfo.capabilities.AdHocMode)	caps |= APPLE80211_CAP_IBSS;
+			if (_hwInfo.capabilities.HostAPMode)	caps |= APPLE80211_CAP_HOSTAP;
+			if (_hwInfo.capabilities.MonitorMode)	caps |= APPLE80211_CAP_MONITOR;
+			
+			if (_hwInfo.capabilities.PowerManagement)	caps |= APPLE80211_CAP_PMGT;
+			if (_hwInfo.capabilities.TxPowerManagement)	caps |= APPLE80211_CAP_TXPMGT;
+			if (_hwInfo.capabilities.WakeOnWireless)	caps |= APPLE80211_CAP_WOW;
+			
+			if (_hwInfo.capabilities.ShortSlot)	caps |= APPLE80211_CAP_SHSLOT;
+			if (_hwInfo.capabilities.ShortPreamble)	caps |= APPLE80211_CAP_SHPREAMBLE;
+			if (_hwInfo.capabilities.FrameBursting)	caps |= APPLE80211_CAP_BURST;
+			if (_hwInfo.capabilities.WMEQoS)	caps |= APPLE80211_CAP_WME;
+			if (_hwInfo.capabilities.ShortGuardInterval20MHz)	caps |= APPLE80211_CAP_SHORT_GI_20MHZ;
+			if (_hwInfo.capabilities.ShortGuardInterval40MHz)	caps |= APPLE80211_CAP_SHORT_GI_40MHZ;
+			
+			ret->capabilities[0] = (caps & 0xff);
+			ret->capabilities[1] = (caps & 0xff00) >> 8;
+			ret->capabilities[2] = (caps & 0xff0000) >> 16;
+			
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_STATUS_DEV_NAME:
+		{
+			IOC_STRUCT(apple80211_status_dev_data);
+			strncpy((char*) ret->dev_name, "voodoowireless", sizeof("voodoowireless"));
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_DRIVER_VERSION:
+		{
+			IOC_STRUCT(apple80211_version_data);
+			ret->string_len = _hwInfo.driverVersion->getLength();
+			strncpy(ret->string, _hwInfo.driverVersion->getCStringNoCopy(), ret->string_len);
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_HARDWARE_VERSION:
+		{
+			IOC_STRUCT(apple80211_version_data);
+			ret->string_len = _hwInfo.hardwareRevision->getLength();
+			strncpy(ret->string, _hwInfo.hardwareRevision->getCStringNoCopy(), ret->string_len);
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_COUNTRY_CODE:
+		{
+			IOC_STRUCT(apple80211_country_code_data);
+			strncpy((char*) ret->cc, "IN ", sizeof("IN ")); // FIXME
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_LOCALE:
+		{
+			IOC_STRUCT(apple80211_locale_data);
+			ret->locale = APPLE80211_LOCALE_APAC; // FIXME
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_POWERSAVE:
+		{
+			IOC_STRUCT(apple80211_powersave_data);
+			ret->powersave_level = APPLE80211_POWERSAVE_MODE_DISABLED; // FIXME
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_TXPOWER:
+		{
+			IOC_STRUCT(apple80211_txpower_data);
+			ret->txpower_unit = APPLE80211_UNIT_DBM;
+			getConfiguration(configTxPower, &ret->txpower);
+			ret->txpower = todBm(ret->txpower);
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_POWER:
+		{
+			IOC_STRUCT(apple80211_power_data);
+			ret->num_radios = 1;
+			ret->power_state[0] = (_flags & flagPowerOn) ? APPLE80211_POWER_ON : APPLE80211_POWER_OFF;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_SSID:
+		{
+			if (_staState == staAssociated) {
+				IOC_STRUCT(apple80211_ssid_data);
+				ret->ssid_len = _currentAssocData->ad_ssid_len;
+				bcopy(_currentAssocData->ad_ssid, ret->ssid_bytes, ret->ssid_len);
+				return kIOReturnSuccess;
+			} else
+				return kIOReturnError;
+		}
+		case APPLE80211_IOC_BSSID:
+		{
+			if (_staState == staAssociated) {
+				IOC_STRUCT(apple80211_bssid_data);
+				bcopy(&_currentAssocData->ad_bssid, &ret->bssid, APPLE80211_ADDR_LEN);
+				return kIOReturnSuccess;
+			} else
+				return kIOReturnError;
+		}
+		case APPLE80211_IOC_CHANNEL:
+		{
+			if (_staState == staAssociated) {
+				IOC_STRUCT(apple80211_channel_data);
+				ret->channel.channel = _currentChannel;
+				ret->channel.flags   =	APPLE80211_C_FLAG_10MHZ |
+							APPLE80211_C_FLAG_2GHZ |
+							APPLE80211_C_FLAG_ACTIVE;
+				return kIOReturnSuccess;
+			} else
+				kIOReturnError;
+		}
+		
+		case APPLE80211_IOC_SUPPORTED_CHANNELS:
+		{
+			// FIXME !!
+			IOC_STRUCT(apple80211_sup_channel_data);
+			ret->num_channels = 13;
+			for (int i = 1; i <= 13; i++) {
+				ret->supported_channels[i - 1].channel = i;
+				ret->supported_channels[i - 1].flags =	APPLE80211_C_FLAG_10MHZ |
+									APPLE80211_C_FLAG_2GHZ |
+									APPLE80211_C_FLAG_ACTIVE;
+			}
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_STATE:
+		{
+			IOC_STRUCT(apple80211_state_data);
+			if (_staState == staAssociated) {
+				ret->state = APPLE80211_S_RUN;
+				return kIOReturnSuccess;
+			}
+			
+			if (_flags & flagScanning) {
+				ret->state = APPLE80211_S_SCAN;
+				return kIOReturnSuccess;
+			}
+			
+			if (!(_flags & flagScanning) &&
+			    !(_flags & flagAssociating))
+			{
+				// ie. not associating and not scanning
+				ret->state = APPLE80211_S_INIT;
+				return kIOReturnSuccess;
+			}
+			
+			// otherwise we're mid-assoc
+			switch (_staState) {
+				case staInit:
+					// auth is in progress
+					ret->state = APPLE80211_S_AUTH;
+					break;
+					
+				case staAuthenticated:
+					// auth'd, assoc in progress
+					ret->state = APPLE80211_S_ASSOC;
+					break;
+				
+				default:
+					// should not happen, but just to silence compiler
+					break;
+			};
+			return kIOReturnSuccess;
+		}
+		
+		default:
+			return kIOReturnUnsupported;
+	};
+	
+	return kIOReturnSuccess;
+}
+
+
+IOReturn
+MyClass::apple80211Request_SET
+( int request_number, void* data )
+{
 	return kIOReturnUnsupported;
 }
 
@@ -212,7 +424,7 @@ MyClass::workerThread
 					_flags |= flagScanning;
 				}
 				break;
-				
+			
 			case VoodooWirelessCommand::cmdAbortScan:
 				abortScan();
 				_flags &= ~(flagScanning);
@@ -224,8 +436,6 @@ MyClass::workerThread
 					DBG(dbgWarning, "CMD: Association command failed\n");
 				} else {
 					DBG(dbgInfo, "CMD: Association command completed\n");
-					bcopy(&assocparams->bssid, &_currentBSSID, 6);
-					_currentWEPKey = assocparams->wepKey;
 					_flags |= flagAssociating;
 					_staState = staInit;
 				}
@@ -356,9 +566,9 @@ MyClass::outputPacket
 	IEEE::EthernetFrameHeader* etherhdr = (IEEE::EthernetFrameHeader*) mbuf_data(m);
 	
 	/* Get source/dest MAC addresses and BSSID from the ethernet frame */
-	bcopy(&_currentBSSID,	(uint8_t*) &bssid, 6);
-	bcopy(&etherhdr->da,	(uint8_t*) &da,	   6);
-	bcopy(&etherhdr->sa,	(uint8_t*) &sa,    6);
+	bcopy(&_currentAssocData->ad_bssid,	(uint8_t*) &bssid, 6);
+	bcopy(&etherhdr->da,			(uint8_t*) &da,	   6);
+	bcopy(&etherhdr->sa,			(uint8_t*) &sa,    6);
 	
 	/* Tack on LLC/SNAP header */
 	const uint8_t llc_dat[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
@@ -402,10 +612,8 @@ MyClass::outputPacket
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
-	hdr.wepKey	= _currentWEPKey;
 	return outputFrame( hdr, m );
 }
-
 
 
 void
@@ -516,7 +724,6 @@ MyClass::handleScanResultFrame
 }
 
 
-
 bool
 MyClass::scanResultsAreSimilar
 ( const apple80211_scan_result* a, const apple80211_scan_result* b )
@@ -562,10 +769,9 @@ MyClass::scanResultsAreSimilar
 }
 
 
-
 IOReturn
 MyClass::probeResponseToScanResult
-( RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret)
+( RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret )
 {
 	/*
 	 * This function takes a frame received from the hardware, parses it and gets the
@@ -664,6 +870,7 @@ MyClass::todBm
 			return val;
 	};
 }
+
 
 void
 MyClass::report

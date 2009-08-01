@@ -111,8 +111,9 @@ private:
 	IOCommandPool*		_commandPool;
 	OSArray*		_scanResults;
 	uint32_t		_resultsPending;
-	IEEE::MACAddress	_currentBSSID;
-	IEEE::WEPKey		_currentWEPKey;
+	apple80211_scan_result*	_currentNetwork;
+	apple80211_assoc_data*	_currentAssocData;
+	uint8_t			_currentChannel;
 	RxFrameHeader		_lastRxFrameHeader;
 	
 	int			todBm(int val);
@@ -120,6 +121,9 @@ private:
 	void			handleScanResultFrame(RxFrameHeader hdr, mbuf_t m);
 	IOReturn		probeResponseToScanResult(RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret);
 	bool			scanResultsAreSimilar(const apple80211_scan_result* a, const apple80211_scan_result* b);
+	
+	IOReturn		apple80211Request_GET(int request_number, void* data);
+	IOReturn		apple80211Request_SET(int request_number, void* data);
 	
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 0);
