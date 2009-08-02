@@ -28,7 +28,7 @@ public:
 	void*		arg0;
 	void*		arg1;
 	
-	VoodooWirelessCommand* withType(CommandType cmdType, void* arg0 = 0, void* arg1 = 0) {
+	static VoodooWirelessCommand* withType(CommandType cmdType, void* arg0 = 0, void* arg1 = 0) {
 		VoodooWirelessCommand* cmd = new VoodooWirelessCommand;
 		if (!cmd) return 0;
 		cmd->commandType = cmdType;

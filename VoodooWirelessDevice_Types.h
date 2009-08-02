@@ -18,11 +18,11 @@
 namespace org_voodoo_wireless {
 	
 	struct ScanParameters {
-		enum ScanType {	scanTypeActive, scanTypePassive, scanTypeBackground };
+		enum ScanType {	scanTypeActive = 1, scanTypePassive = 2, scanTypeBackground = 4 };
 		ScanType		scanType;	// Type of scan (active/passive..)
 		IEEE::PHYModes		scanPhyMode;	// 11a,b,g or n on which to scan
 		IEEE::MACAddress	bssid;		// BSSID to which scan is directed
-		OSSymbol*		ssid;		// SSID (network name) to which scan is directed
+		OSData*			ssid;		// SSID (network name) to which scan is directed
 		uint32_t		dwellTime;	// Time to stay on each channel (ms)
 		uint32_t		restTime;	// Time to wait between channels (ms)
 	};
@@ -31,7 +31,7 @@ namespace org_voodoo_wireless {
 		IEEE::Channel		channel;	// channel on which this AP is operating
 		IEEE::Capability	capability;	// AP capability flags
 		IEEE::MACAddress	bssid;		// BSSID of access point
-		OSSymbol*		ssid;		// Network name
+		OSData*			ssid;		// Network name
 		int			noiseLevel;	// background noise
 		int			signalLevel;	// signal strength
 		IEEE::RateSet		supportedRates;	// rates that the AP supports
@@ -41,7 +41,7 @@ namespace org_voodoo_wireless {
 	};
 	
 	struct AssociationParameters {
-		OSSymbol*		ssid;		// not needed usually, but providing anyway
+		OSData*			ssid;		// not needed usually, but providing anyway
 		IEEE::MACAddress	bssid;
 		IEEE::Channel		channel;
 		IEEE::Capability	capability;

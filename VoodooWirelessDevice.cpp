@@ -15,9 +15,12 @@
 #include <libkern/c++/OSData.h>
 #include <libkern/c++/OSSymbol.h>
 
-#define MyClass		VoodooWirelessDevice
-#define super		IO80211Controller
-#define IOCTL_GET_REQ	3223349705UL // magic number alert!
+#define MyClass			VoodooWirelessDevice
+#define super			IO80211Controller
+#define IOCTL_GET_REQ		3223349705UL // magic number alert!
+#define IOC_STRUCT(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
+#define toMbps(x)		(((x) & 0x7f) / 2)
+
 
 enum {
 	// Flags for _flags member variable
@@ -167,12 +170,140 @@ MyClass::apple80211Request
 
 
 IOReturn
+MyClass::enqueueCommand
+( uint32_t cmdType, void* arg0, void* arg1 )
+{
+	VoodooWirelessCommand* cmd = VoodooWirelessCommand::withType((VoodooWirelessCommand::CommandType) cmdType,
+								     arg0, arg1);
+	if (!cmd)
+		return kIOReturnError;
+	_commandPool->returnCommand(cmd);
+	return kIOReturnSuccess;
+}
+
+
+IOReturn
+MyClass::apple80211Request_SET
+( int request_number, void* data )
+{
+	int i;
+	switch (request_number)
+	{
+		case APPLE80211_IOC_POWER:
+		{
+			IOC_STRUCT(apple80211_power_data);
+			switch (ret->power_state[0]) {
+				case APPLE80211_POWER_ON:
+					return enqueueCommand(VoodooWirelessCommand::cmdPowerOn);
+				case APPLE80211_POWER_OFF:
+					return enqueueCommand(VoodooWirelessCommand::cmdPowerOff);
+				default:
+					break;
+			};
+		}
+			
+		case APPLE80211_IOC_SCAN_REQ:
+		{
+			IOC_STRUCT(apple80211_scan_data);
+			
+			if (ret->scan_type == APPLE80211_SCAN_TYPE_FAST) // return cached results
+				return kIOReturnSuccess; // no problem, we have it stored
+			
+			if (ret->num_channels == 0) {
+				// If no channels were specified, scan all channels that HW supports
+				ret->num_channels = _hwInfo.supportedChannels.numItems;
+				for (i = 0; i < (ret->num_channels); i++) {
+					ret->channels[i].channel = _hwInfo.supportedChannels.channel[i].number;
+					ret->channels[i].flags   = _hwInfo.supportedChannels.channel[i].flags;
+				}
+			}
+			
+			// Prepare parameters
+			
+			ScanParameters scan;
+			scan.scanType		= (ScanParameters::ScanType) ret->scan_type;
+			scan.scanPhyMode	= (IEEE::PHYModes) ret->phy_mode;
+			scan.dwellTime		= (ret->dwell_time == 0) ? 200 : ret->dwell_time;
+			scan.restTime		= (ret->rest_time  == 0) ?  50 : ret->rest_time;
+			bcopy(&ret->bssid, &scan.bssid, 6);
+			scan.ssid = OSData::withBytes((char*) ret->ssid, ret->ssid_len);
+			
+			IEEE::ChannelList cl;
+			cl.numItems = ret->num_channels;
+			for (i = 0; i < ret->num_channels; i++) {
+				cl.channel[i].number = ret->channels[i].channel;
+				cl.channel[i].flags  = ret->channels[i].flags;
+			}
+			
+			return enqueueCommand(VoodooWirelessCommand::cmdStartScan, &scan, &cl);
+		}
+			
+		case APPLE80211_IOC_ASSOCIATE:
+		{
+			// Don't try to associate if already associated, or in process of associating
+			if ((_staState == staAssociated) || (_flags & flagAssociating))
+				return kIOReturnBusy;
+			
+			// If we are scanning, schedule to abort it before associating
+			if (_flags & flagScanning)
+				enqueueCommand(VoodooWirelessCommand::cmdAbortScan);
+			
+			// Prepare assoc params and enqueue the command
+			IOC_STRUCT(apple80211_assoc_data);
+			
+			apple80211_scan_result* sr = findScanResult(ret);
+			if (sr == 0) // no network with given params were found
+				return kIOReturnError;
+			
+			
+		}
+		
+		case APPLE80211_IOC_TXPOWER:
+			return kIOReturnSuccess; // TODO !!
+		
+		case APPLE80211_IOC_RSN_IE:
+			return kIOReturnUnsupported; // TODO !!
+		
+		case APPLE80211_IOC_FRAG_THRESHOLD:
+		{
+			IOC_STRUCT(apple80211_frag_threshold_data);
+			return setConfiguration(configFragmentationThreshold, &ret->threshold);
+		}
+			
+		case APPLE80211_IOC_PROTMODE:
+		{
+			IOC_STRUCT(apple80211_protmode_data);
+			if (ret->protmode == APPLE80211_PROTMODE_OFF)
+				ret->threshold = 2346; // max threshold == turns it off
+			return setConfiguration(configRTSThreshold, &ret->threshold);
+		}
+		
+		case APPLE80211_IOC_DISASSOCIATE:
+			return enqueueCommand(VoodooWirelessCommand::cmdDisassociate);
+		
+		case APPLE80211_IOC_SHORT_RETRY_LIMIT:
+		{
+			IOC_STRUCT(apple80211_retry_limit_data);
+			return setConfiguration(configShortRetryLimit, &ret->limit);
+		}
+			
+		case APPLE80211_IOC_LONG_RETRY_LIMIT:
+		{
+			IOC_STRUCT(apple80211_retry_limit_data);
+			return setConfiguration(configLongRetryLimit, &ret->limit);
+		}
+			
+		default:
+			return kIOReturnUnsupported;
+	};
+}
+
+
+
+IOReturn
 MyClass::apple80211Request_GET
 ( int request_number, void* data )
 {
-#define IOC_STRUCT(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
-#define toMbps(x)		(((x) & 0x7f) / 2)
-	
 	switch (request_number)
 	{
 		case APPLE80211_IOC_CARD_CAPABILITIES:
@@ -307,14 +438,11 @@ MyClass::apple80211Request_GET
 		
 		case APPLE80211_IOC_SUPPORTED_CHANNELS:
 		{
-			// FIXME !!
 			IOC_STRUCT(apple80211_sup_channel_data);
-			ret->num_channels = 13;
-			for (int i = 1; i <= 13; i++) {
-				ret->supported_channels[i - 1].channel = i;
-				ret->supported_channels[i - 1].flags =	APPLE80211_C_FLAG_10MHZ |
-									APPLE80211_C_FLAG_2GHZ |
-									APPLE80211_C_FLAG_ACTIVE;
+			ret->num_channels = _hwInfo.supportedChannels.numItems;
+			for (int i = 0; i < ret->num_channels; i++) {
+				ret->supported_channels[i].channel = _hwInfo.supportedChannels.channel[i].number;
+				ret->supported_channels[i].flags   = _hwInfo.supportedChannels.channel[i].flags;
 			}
 			return kIOReturnSuccess;
 		}
@@ -537,13 +665,6 @@ MyClass::apple80211Request_GET
 	};
 }
 
-
-IOReturn
-MyClass::apple80211Request_SET
-( int request_number, void* data )
-{
-	return kIOReturnUnsupported;
-}
 
 
 /* This function is called when the background command-queue thread starts */
@@ -900,6 +1021,48 @@ MyClass::handleScanResultFrame
 	RELEASE(scanresult); // adding to array retains a reference
 }
 
+
+apple80211_scan_result*
+MyClass::findScanResult
+( apple80211_assoc_data* a )
+{
+	// find the scan result corresponding to the given assoc params
+	if (!a) return false;
+	if (_scanResults->getCount() == 0) return false;
+	
+	apple80211_scan_result*	sr;
+	const char		allZeroes[]	= { 0, 0, 0, 0, 0, 0 };
+	OSData*			oneResult;
+	bool			matchBSSID	= (strncmp((char*) &a->ad_bssid, allZeroes, 6) == 0);
+	
+	for (int i = 0; i < _scanResults->getCount(); i++) {
+		// Get next scan result from the list
+		oneResult = OSDynamicCast(OSData, _scanResults->getObject(i));
+		if (!oneResult) continue;
+		sr = (apple80211_scan_result*) oneResult->getBytesNoCopy();
+		
+		// if bssid match is needed, match that first
+		if (matchBSSID) {
+			if (strncmp((char*) &a->ad_bssid, (char*) sr->asr_bssid, 6) == 0) {
+				// bssid matched, return this result
+				return sr;
+			}
+		}
+		// for this scan result, bssid didn't match (or wasn't needed), so match ssid
+		if (strncmp((char*) sr->asr_ssid,
+			    (char*) a->ad_ssid,
+			    min(a->ad_ssid_len, sr->asr_ssid_len)) != 0)
+		{
+			// ssid also didn't match, move on
+			continue;
+		} else {
+			// ssid matched, return this result
+			return sr;
+		}
+	}
+	// if we reached here, means no results were found
+	return false;
+}
 
 bool
 MyClass::scanResultsAreSimilar

@@ -123,9 +123,12 @@ private:
 	void			handleScanResultFrame(RxFrameHeader hdr, mbuf_t m);
 	IOReturn		probeResponseToScanResult(RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret);
 	bool			scanResultsAreSimilar(const apple80211_scan_result* a, const apple80211_scan_result* b);
+	apple80211_scan_result*	findScanResult(apple80211_assoc_data* a);
 	
 	IOReturn		apple80211Request_GET(int request_number, void* data);
 	IOReturn		apple80211Request_SET(int request_number, void* data);
+	
+	IOReturn		enqueueCommand(uint32_t commandType, void* arg0 = 0, void* arg1 = 0);
 	
 	/* The following are reserved slots for future expansion */
 	OSMetaClassDeclareReservedUnused(VoodooWirelessDevice, 0);

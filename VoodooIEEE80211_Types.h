@@ -27,10 +27,11 @@ namespace IEEE {
 	};
 	
 	enum PHYModes {
-		dot11A	= 1,		// 5GHz OFDM
-		dot11B	= 2,		// 2.4GHz CCK
-		dot11G	= 4,		// 2.4GHz OFDM
-		dot11N	= 8,		// 2.4GHz or 5GHz MIMO
+		phyModeAuto = 1,	// auto-select
+		dot11A	= 2,		// 5GHz OFDM
+		dot11B	= 4,		// 2.4GHz CCK
+		dot11G	= 8,		// 2.4GHz OFDM
+		dot11N	= 0x10,		// 2.4GHz or 5GHz MIMO
 	};
 	
 	const size_t MAX_CHANNELS = 64;
@@ -40,15 +41,16 @@ namespace IEEE {
 		uint8_t			number;		// Channel number
 		uint16_t		flags;		// Channel type flags
 		enum Flags {
-			supportsActiveScanning	= 0x1,
-			band2GHz		= 0x2,
-			band5GHz		= 0x4,
-			width10MHz		= 0x8,
-			width20MHz		= 0x10,
-			width40MHz		= 0x20,
-			requiresDFS		= 0x40,	// dynamic frequency selection for 11a
-			supportsHostAPMode	= 0x80,
-			supportsAdHocMode	= 0x100,
+			// These values correspond to apple80211's channel flags
+			supportsActiveScanning	= 0x80,
+			band2GHz		= 0x8,
+			band5GHz		= 0x10,
+			width10MHz		= 0x1,
+			width20MHz		= 0x2,
+			width40MHz		= 0x4,
+			requiresDFS		= 0x100, // dynamic frequency selection for 11a
+			supportsHostAPMode	= 0x40,
+			supportsAdHocMode	= 0x20,
 			extensionChannelIsAbove	= 0x200, // in 11n mode, if ext. ch is above this ch. (otherwise below)
 			
 			default11BGChannelFlags	= (supportsActiveScanning | band2GHz | width10MHz),
