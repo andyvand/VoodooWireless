@@ -171,6 +171,7 @@ MyClass::apple80211Request_GET
 ( int request_number, void* data )
 {
 #define IOC_STRUCT(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
+#define toMbps(x)		(((x) & 0x7f) / 2)
 	
 	switch (request_number)
 	{
@@ -210,14 +211,14 @@ MyClass::apple80211Request_GET
 			
 			return kIOReturnSuccess;
 		}
-			
+		
 		case APPLE80211_IOC_STATUS_DEV_NAME:
 		{
 			IOC_STRUCT(apple80211_status_dev_data);
 			strncpy((char*) ret->dev_name, "voodoowireless", sizeof("voodoowireless"));
 			return kIOReturnSuccess;
 		}
-			
+		
 		case APPLE80211_IOC_DRIVER_VERSION:
 		{
 			IOC_STRUCT(apple80211_version_data);
@@ -259,7 +260,8 @@ MyClass::apple80211Request_GET
 		{
 			IOC_STRUCT(apple80211_txpower_data);
 			ret->txpower_unit = APPLE80211_UNIT_DBM;
-			getConfiguration(configTxPower, &ret->txpower);
+			if (getConfiguration(configTxPower, &ret->txpower) != kIOReturnSuccess)
+				return kIOReturnError;
 			ret->txpower = todBm(ret->txpower);
 			return kIOReturnSuccess;
 		}
@@ -271,37 +273,36 @@ MyClass::apple80211Request_GET
 			ret->power_state[0] = (_flags & flagPowerOn) ? APPLE80211_POWER_ON : APPLE80211_POWER_OFF;
 			return kIOReturnSuccess;
 		}
-		
+			
 		case APPLE80211_IOC_SSID:
 		{
-			if (_staState == staAssociated) {
-				IOC_STRUCT(apple80211_ssid_data);
-				ret->ssid_len = _currentAssocData->ad_ssid_len;
-				bcopy(_currentAssocData->ad_ssid, ret->ssid_bytes, ret->ssid_len);
-				return kIOReturnSuccess;
-			} else
+			if (!(_staState == staAssociated))
 				return kIOReturnError;
+			IOC_STRUCT(apple80211_ssid_data);
+			ret->ssid_len = _currentAssocData.ad_ssid_len;
+			bcopy(_currentAssocData.ad_ssid, ret->ssid_bytes, ret->ssid_len);
+			return kIOReturnSuccess;
 		}
+		
 		case APPLE80211_IOC_BSSID:
 		{
-			if (_staState == staAssociated) {
-				IOC_STRUCT(apple80211_bssid_data);
-				bcopy(&_currentAssocData->ad_bssid, &ret->bssid, APPLE80211_ADDR_LEN);
-				return kIOReturnSuccess;
-			} else
+			if (!(_staState == staAssociated))
 				return kIOReturnError;
+			IOC_STRUCT(apple80211_bssid_data);
+			bcopy(&_currentAssocData.ad_bssid, &ret->bssid, APPLE80211_ADDR_LEN);
+			return kIOReturnSuccess;
 		}
+		
 		case APPLE80211_IOC_CHANNEL:
 		{
-			if (_staState == staAssociated) {
-				IOC_STRUCT(apple80211_channel_data);
-				ret->channel.channel = _currentChannel;
-				ret->channel.flags   =	APPLE80211_C_FLAG_10MHZ |
-							APPLE80211_C_FLAG_2GHZ |
-							APPLE80211_C_FLAG_ACTIVE;
-				return kIOReturnSuccess;
-			} else
-				kIOReturnError;
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_channel_data);
+			ret->channel.channel = _currentChannel;
+			ret->channel.flags   =	APPLE80211_C_FLAG_10MHZ |
+						APPLE80211_C_FLAG_2GHZ |
+						APPLE80211_C_FLAG_ACTIVE;
+			return kIOReturnSuccess;
 		}
 		
 		case APPLE80211_IOC_SUPPORTED_CHANNELS:
@@ -317,7 +318,7 @@ MyClass::apple80211Request_GET
 			}
 			return kIOReturnSuccess;
 		}
-			
+		
 		case APPLE80211_IOC_STATE:
 		{
 			IOC_STRUCT(apple80211_state_data);
@@ -358,11 +359,182 @@ MyClass::apple80211Request_GET
 			return kIOReturnSuccess;
 		}
 		
+		case APPLE80211_IOC_PHY_MODE:
+		{
+			IOC_STRUCT(apple80211_phymode_data);
+			if (_hwInfo.supportedModes & IEEE::dot11A) ret->phy_mode |= APPLE80211_MODE_11A;
+			if (_hwInfo.supportedModes & IEEE::dot11B) ret->phy_mode |= APPLE80211_MODE_11B;
+			if (_hwInfo.supportedModes & IEEE::dot11G) ret->phy_mode |= APPLE80211_MODE_11G;
+			if (_hwInfo.supportedModes & IEEE::dot11N) ret->phy_mode |= APPLE80211_MODE_11N;
+			ret->active_phy_mode = (_staState == staAssociated) ?	_currentAssocData.ad_mode :
+										APPLE80211_MODE_AUTO;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_OP_MODE:
+		{
+			IOC_STRUCT(apple80211_opmode_data);
+			ret->op_mode = APPLE80211_M_STA;
+			if (_hwInfo.capabilities.AdHocMode)	ret->op_mode |= APPLE80211_M_IBSS;
+			if (_hwInfo.capabilities.HostAPMode)	ret->op_mode |= APPLE80211_M_HOSTAP;
+			if (_hwInfo.capabilities.MonitorMode)	ret->op_mode |= APPLE80211_M_MONITOR;
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_NOISE:
+		{
+			IOC_STRUCT(apple80211_noise_data);
+			ret->num_radios = 1;
+			ret->noise_unit = APPLE80211_UNIT_DBM;
+			ret->noise[0]	= ret->aggregate_noise
+					= ret->noise_ext[0]
+					= ret->aggregate_noise_ext
+					= _currentNoiseLevel;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_RSSI:
+		{
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_rssi_data);
+			ret->num_radios = 1;
+			ret->rssi_unit	= APPLE80211_UNIT_DBM;
+			ret->rssi[0]	= ret->aggregate_rssi
+					= ret->rssi_ext[0]
+					= ret->aggregate_rssi_ext
+					= _currentSignalLevel;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_LAST_RX_PKT_DATA:
+		{
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_last_rx_pkt_data);
+			ret->rate = toMbps(_lastRxFrameHeader.rate);
+			ret->rssi = todBm(_lastRxFrameHeader.signalLevel);
+			ret->num_streams = 1; // only changes for 11n mode
+			// TODO: we should ideally fill in ret->sa too, but ignoring for now
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_RATE:
+		{
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_rate_data);
+			ret->num_radios = 1;
+			if (getConfiguration(configCurrentTxRate, &ret->rate[0]) != kIOReturnSuccess)
+				return kIOReturnError;
+			ret->rate[0] = toMbps(ret->rate[0]);
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_RATE_SET:
+		{
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_rate_set_data);
+			for (int nr = 0; nr < _currentNetwork.asr_nrates; nr++)
+				ret->rates[nr].rate = toMbps(_currentNetwork.asr_rates[nr]);
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_RSN_IE:
+		{
+			if (_currentAssocData.ad_rsn_ie_len == 0)
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_rsn_ie_data);
+			ret->len = _currentAssocData.ad_rsn_ie_len;
+			bcopy(_currentAssocData.ad_rsn_ie, ret->ie, ret->len);
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_FRAG_THRESHOLD:
+		{
+			IOC_STRUCT(apple80211_frag_threshold_data);
+			if (getConfiguration(configFragmentationThreshold, &ret->threshold) != kIOReturnSuccess)
+				return kIOReturnError;
+			else
+				return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_DEAUTH:
+		{
+			if (_staState == staAssociated)
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_deauth_data);
+			ret->deauth_reason = _lastReasonCode;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_AUTH_TYPE:
+		{
+			if (!(_staState == staAssociated))
+				return kIOReturnError;
+			IOC_STRUCT(apple80211_authtype_data);
+			ret->authtype_upper = _currentAssocData.ad_auth_upper;
+			ret->authtype_lower = _currentAssocData.ad_auth_lower;
+			return kIOReturnSuccess;
+		}
+		
+		case APPLE80211_IOC_ASSOCIATION_STATUS:
+		{
+			IOC_STRUCT(apple80211_assoc_status_data);
+			if (_staState == staAssociated) {
+				ret->status = APPLE80211_STATUS_SUCCESS;
+				return kIOReturnSuccess;
+			}
+			if (_flags & flagAssociating)
+				return kIOReturnBusy;
+			else {
+				ret->status = APPLE80211_STATUS_UNSPECIFIED_FAILURE; // TODO: use reason code
+				return kIOReturnSuccess;
+			}
+		}
+		
+		case APPLE80211_IOC_SCAN_RESULT:
+		{
+			if (_flags & flagScanning)
+				return kIOReturnBusy;
+			if (_resultsPending == 0) {
+				_resultsPending = _scanResults->getCount(); // wrap back for later
+				return -1; // XXX
+			} else {
+				apple80211_scan_result** ret = (apple80211_scan_result**) data;
+				OSData* oneResult = OSDynamicCast(OSData,
+								  _scanResults->getObject(--(_resultsPending)));
+				*ret = (apple80211_scan_result*) oneResult->getBytesNoCopy();
+				return kIOReturnSuccess;
+			}
+		}
+			
+		case APPLE80211_IOC_MCS:
+		{
+			IOC_STRUCT(apple80211_mcs_data);
+			ret->index = APPLE80211_MCS_INDEX_AUTO;
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_PROTMODE:
+		{
+			IOC_STRUCT(apple80211_protmode_data);
+			ret->protmode = APPLE80211_PROTMODE_AUTO;
+			ret->threshold = 2346; // FIXME
+			return kIOReturnSuccess;
+		}
+			
+		case APPLE80211_IOC_INT_MIT:
+		{
+			IOC_STRUCT(apple80211_intmit_data);
+			ret->int_mit = APPLE80211_INT_MIT_AUTO;
+			return kIOReturnSuccess;
+		}
+		
 		default:
 			return kIOReturnUnsupported;
 	};
-	
-	return kIOReturnSuccess;
 }
 
 
@@ -420,6 +592,8 @@ MyClass::workerThread
 				{
 					DBG(dbgWarning, "CMD: Start scan command failed\n");
 				} else {
+					// scan has started, clear existing results in anticipation of new ones
+					_scanResults->flushCollection();
 					DBG(dbgInfo, "CMD: Start scan command completed\n");
 					_flags |= flagScanning;
 				}
@@ -566,7 +740,7 @@ MyClass::outputPacket
 	IEEE::EthernetFrameHeader* etherhdr = (IEEE::EthernetFrameHeader*) mbuf_data(m);
 	
 	/* Get source/dest MAC addresses and BSSID from the ethernet frame */
-	bcopy(&_currentAssocData->ad_bssid,	(uint8_t*) &bssid, 6);
+	bcopy(&_currentAssocData.ad_bssid,	(uint8_t*) &bssid, 6);
 	bcopy(&etherhdr->da,			(uint8_t*) &da,	   6);
 	bcopy(&etherhdr->sa,			(uint8_t*) &sa,    6);
 	
@@ -625,6 +799,9 @@ MyClass::inputFrame
 	
 	rxhdr = (IEEE::RxDataFrameHeader*) mbuf_data(m);
 	bcopy(&hdr, &_lastRxFrameHeader, sizeof(hdr));	// save for later use during apple80211request etc.
+	
+	/* Update signal level (2-point moving average) */
+	_currentSignalLevel = (_currentSignalLevel + todBm(hdr.signalLevel)) / 2;
 	
 	if ((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame) &&
 	    (rxhdr->hdr.subtype	== IEEE::WiFiFrameHeader::Data))
@@ -952,6 +1129,10 @@ MyClass::report
 		case msgScanCompleted:
 			_flags &= ~(flagScanning);
 			_netif->postMessage(APPLE80211_M_SCAN_DONE);
+			break;
+			
+		case msgNoiseLevelReport:
+			if (arg) _currentNoiseLevel = todBm(*((int*) arg));
 			break;
 			
 		default:

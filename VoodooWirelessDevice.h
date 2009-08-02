@@ -111,9 +111,11 @@ private:
 	IOCommandPool*		_commandPool;
 	OSArray*		_scanResults;
 	uint32_t		_resultsPending;
-	apple80211_scan_result*	_currentNetwork;
-	apple80211_assoc_data*	_currentAssocData;
+	apple80211_scan_result	_currentNetwork;
+	apple80211_assoc_data	_currentAssocData;
 	uint8_t			_currentChannel;
+	int			_currentNoiseLevel;
+	int			_currentSignalLevel;
 	RxFrameHeader		_lastRxFrameHeader;
 	
 	int			todBm(int val);
