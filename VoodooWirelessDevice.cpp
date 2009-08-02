@@ -219,23 +219,24 @@ MyClass::apple80211Request_SET
 			}
 			
 			// Prepare parameters
+			ScanParameters* scan = (ScanParameters*) IOMalloc(sizeof(ScanParameters));
+			bzero(scan, sizeof(*scan));
+			scan->scanType		= (ScanParameters::ScanType) ret->scan_type;
+			scan->scanPhyMode	= (IEEE::PHYModes) ret->phy_mode;
+			scan->dwellTime		= (ret->dwell_time == 0) ? 200 : ret->dwell_time;
+			scan->restTime		= (ret->rest_time  == 0) ?  50 : ret->rest_time;
+			bcopy(&ret->bssid, &scan->bssid, 6);
+			scan->ssid = OSData::withBytes((char*) ret->ssid, ret->ssid_len);
 			
-			ScanParameters scan;
-			scan.scanType		= (ScanParameters::ScanType) ret->scan_type;
-			scan.scanPhyMode	= (IEEE::PHYModes) ret->phy_mode;
-			scan.dwellTime		= (ret->dwell_time == 0) ? 200 : ret->dwell_time;
-			scan.restTime		= (ret->rest_time  == 0) ?  50 : ret->rest_time;
-			bcopy(&ret->bssid, &scan.bssid, 6);
-			scan.ssid = OSData::withBytes((char*) ret->ssid, ret->ssid_len);
-			
-			IEEE::ChannelList cl;
-			cl.numItems = ret->num_channels;
+			IEEE::ChannelList* cl = (IEEE::ChannelList*) IOMalloc(sizeof(IEEE::ChannelList));
+			bzero(cl, sizeof(*cl));
+			cl->numItems = ret->num_channels;
 			for (i = 0; i < ret->num_channels; i++) {
-				cl.channel[i].number = ret->channels[i].channel;
-				cl.channel[i].flags  = ret->channels[i].flags;
+				cl->channel[i].number = ret->channels[i].channel;
+				cl->channel[i].flags  = ret->channels[i].flags;
 			}
 			
-			return enqueueCommand(VoodooWirelessCommand::cmdStartScan, &scan, &cl);
+			return enqueueCommand(VoodooWirelessCommand::cmdStartScan, scan, cl);
 		}
 			
 		case APPLE80211_IOC_ASSOCIATE:
@@ -255,7 +256,39 @@ MyClass::apple80211Request_SET
 			if (sr == 0) // no network with given params were found
 				return kIOReturnError;
 			
+			AssociationParameters* params =
+				(AssociationParameters*) IOMalloc(sizeof(AssociationParameters));
 			
+			bzero(params, sizeof(*params));
+			
+			bcopy(sr->asr_bssid, &params->bssid, 6);
+			params->ssid		= OSData::withBytes(sr->asr_ssid, sr->asr_ssid_len);
+			params->channel.number	= sr->asr_channel.channel;
+			params->channel.flags	= sr->asr_channel.flags;
+			params->capability.value= sr->asr_cap;
+			
+			params->supportedRates.numItems = sr->asr_nrates;
+			for (i = 0; i < sr->asr_nrates; i++)
+				params->supportedRates.rate[i] = (IEEE::DataRate) sr->asr_rates[i];
+			
+			params->beaconInterval	= sr->asr_beacon_int;
+			params->noiseLevel	= -90; // XXX
+			params->signalLevel	= sr->asr_rssi;
+			params->connectionMode	= (AssociationParameters::APMode) ret->ad_mode;
+			
+			params->authType	= (AssociationParameters::AuthType)
+							((ret->ad_auth_upper * 2) | (ret->ad_auth_lower - 1)); // XXX!!
+			
+			if (ret->ad_flags & APPLE80211_ASSOC_F_CLOSED)
+				params->closedNetwork = true;
+			// TODO: wep key and extra IEs
+			
+			// Save assoc and network for later use
+			bcopy(ret, &_currentAssocData, sizeof(*ret));
+			bcopy(sr,  &_currentNetwork,   sizeof(*sr));
+			
+			// Now enqueue the command
+			return enqueueCommand(VoodooWirelessCommand::cmdAssociate, params);
 		}
 		
 		case APPLE80211_IOC_TXPOWER:

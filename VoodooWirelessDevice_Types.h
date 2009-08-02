@@ -49,7 +49,7 @@ namespace org_voodoo_wireless {
 		uint32_t		beaconInterval;
 		int			noiseLevel;	// might be needed by HW to set antenna gain etc.
 		int			signalLevel;	// ditto
-		enum APMode { apModeAny, apModeAdHoc, apModeInfrastructure };
+		enum APMode { apModeUnknown = 0, apModeAny = 3, apModeAdHoc = 1, apModeInfrastructure = 2 };
 		APMode			connectionMode;
 		enum AuthType {
 			/* LSB signifies lower auth mode (to be OR'd with upper auth mode if needed) */
