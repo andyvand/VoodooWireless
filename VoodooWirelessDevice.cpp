@@ -23,31 +23,6 @@
 
 OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
 
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 0);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 1);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 2);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 3);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 4);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 5);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 6);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 7);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 8);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 9);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 10);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 11);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 12);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 13);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 14);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 15);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 16);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 17);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 18);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 19);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 20);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 21);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 22);
-OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 23);
-
 enum {
 	// Flags for _flags member variable
 	flagResourcesAllocated	= 1,
@@ -220,8 +195,12 @@ MyClass::apple80211Request_SET
 			IOC_STRUCT(apple80211_power_data);
 			switch (ret->power_state[0]) {
 				case APPLE80211_POWER_ON:
+					if (_flags & flagPowerOn) // already on
+						return kIOReturnError;
 					return enqueueCommand(VoodooWirelessCommand::cmdPowerOn);
 				case APPLE80211_POWER_OFF:
+					if (!(_flags & flagPowerOn)) // already off
+						return kIOReturnError;
 					return enqueueCommand(VoodooWirelessCommand::cmdPowerOff);
 				default:
 					break;
@@ -230,6 +209,10 @@ MyClass::apple80211Request_SET
 			
 		case APPLE80211_IOC_SCAN_REQ:
 		{
+			if (_flags & flagScanning ||
+			    _flags & flagAssociating)
+				return kIOReturnBusy;
+			
 			IOC_STRUCT(apple80211_scan_data);
 			
 			if (ret->scan_type == APPLE80211_SCAN_TYPE_FAST) // return cached results
@@ -267,8 +250,11 @@ MyClass::apple80211Request_SET
 			
 		case APPLE80211_IOC_ASSOCIATE:
 		{
-			// Don't try to associate if already associated, or in process of associating
-			if ((_staState == staAssociated) || (_flags & flagAssociating))
+			// Don't try to associate if already associated,
+			// or in process of associating or scanning
+			if ((_staState == staAssociated) ||
+			    (_flags & flagAssociating) ||
+			    (_flags & flagScanning))
 				return kIOReturnBusy;
 			
 			// If we are scanning, schedule to abort it before associating
@@ -325,12 +311,18 @@ MyClass::apple80211Request_SET
 		
 		case APPLE80211_IOC_FRAG_THRESHOLD:
 		{
+			if ((_flags & flagScanning) ||
+			    (_flags & flagAssociating))
+			    return kIOReturnBusy;
 			IOC_STRUCT(apple80211_frag_threshold_data);
 			return setConfiguration(configFragmentationThreshold, &ret->threshold);
 		}
 			
 		case APPLE80211_IOC_PROTMODE:
 		{
+			if ((_flags & flagScanning) ||
+			    (_flags & flagAssociating))
+				return kIOReturnBusy;			
 			IOC_STRUCT(apple80211_protmode_data);
 			if (ret->protmode == APPLE80211_PROTMODE_OFF)
 				ret->threshold = 2346; // max threshold == turns it off
@@ -338,16 +330,25 @@ MyClass::apple80211Request_SET
 		}
 		
 		case APPLE80211_IOC_DISASSOCIATE:
+			if ((_flags & flagScanning) ||
+			    (_flags & flagAssociating))
+				return kIOReturnBusy;			
 			return enqueueCommand(VoodooWirelessCommand::cmdDisassociate);
 		
 		case APPLE80211_IOC_SHORT_RETRY_LIMIT:
 		{
+			if ((_flags & flagScanning) ||
+			    (_flags & flagAssociating))
+				return kIOReturnBusy;			
 			IOC_STRUCT(apple80211_retry_limit_data);
 			return setConfiguration(configShortRetryLimit, &ret->limit);
 		}
 			
 		case APPLE80211_IOC_LONG_RETRY_LIMIT:
 		{
+			if ((_flags & flagScanning) ||
+			    (_flags & flagAssociating))
+				return kIOReturnBusy;			
 			IOC_STRUCT(apple80211_retry_limit_data);
 			return setConfiguration(configLongRetryLimit, &ret->limit);
 		}
@@ -1421,3 +1422,30 @@ void		MyClass::getHardwareInfo	( HardwareInfo* info )			{ return; }
 IOReturn	MyClass::getConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
 IOReturn	MyClass::setConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
 IOReturn	MyClass::outputFrame		( TxFrameHeader hdr, mbuf_t data )	{ return kIOReturnUnsupported; }
+
+
+
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 0);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 1);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 2);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 3);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 4);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 5);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 6);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 7);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 8);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 9);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 10);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 11);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 12);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 13);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 14);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 15);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 16);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 17);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 18);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 19);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 20);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 21);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 22);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 23);
