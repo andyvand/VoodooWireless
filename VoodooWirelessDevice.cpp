@@ -45,8 +45,8 @@ enum {
 	staAssociated
 };
 
-const int org_voodoo_wireless_debug = dbgFatal;
-
+const int org_voodoo_wireless_debug = (dbgInfo | dbgFatal | dbgWarning);
+#define MAX_SCAN_RESULTS 64
 
 //*********************************************************************************************************************
 #pragma mark -
@@ -70,6 +70,9 @@ MyClass::start
 	
 	/* Create the command pool for queueing HW subroutines */
 	_commandPool = IOCommandPool::withWorkLoop(_workloop);
+	
+	/* Create the array to hold scan results */
+	_scanResults = OSArray::withCapacity(32); // by default, but it autoexpands
 	
 	/* Do HW specific initialization */
 	if (allocateResources(provider) != kIOReturnSuccess) {
@@ -255,20 +258,7 @@ MyClass::apple80211Request_SET
 			else
 				scan.ssid = OSData::withCapacity(0);
 			
-			IEEE::ChannelList cl;
-			bzero(&cl, sizeof(cl));
-			if (got->num_channels != 0) { // some channels were specified
-				cl.numItems = got->num_channels;
-				for (i = 0; i < got->num_channels; i++) {
-					cl.channel[i].number = got->channels[i].channel;
-					cl.channel[i].flags  = got->channels[i].flags;
-				}
-			} else { // no channels specified by airport, scan all channels
-				// just copy over the channels HW supports
-				bcopy(&_hwInfo.supportedChannels, &cl, sizeof(cl));
-			}
-			
-			if (startScan(&scan, &cl) != kIOReturnSuccess)
+			if (startScan(&scan, &_hwInfo.supportedChannels) != kIOReturnSuccess)
 			{
 				DBG(dbgWarning, "CMD: Start scan command failed\n");
 				return kIOReturnError;
@@ -532,7 +522,7 @@ MyClass::apple80211Request_GET
 			if (!(_staState == staAssociated))
 				return kIOReturnError;
 			IOC_STRUCT_RET(apple80211_bssid_data);
-			bcopy(&_currentAssocData.ad_bssid, &ret->bssid, APPLE80211_ADDR_LEN);
+			bcopy(_currentNetwork.asr_bssid, &ret->bssid, APPLE80211_ADDR_LEN);
 			return kIOReturnSuccess;
 		}
 		
@@ -541,7 +531,7 @@ MyClass::apple80211Request_GET
 			if (!(_staState == staAssociated))
 				return kIOReturnError;
 			IOC_STRUCT_RET(apple80211_channel_data);
-			ret->channel.channel = _currentChannel;
+			ret->channel.channel = _currentNetwork.asr_channel.channel;
 			ret->channel.flags   =	APPLE80211_C_FLAG_10MHZ |
 						APPLE80211_C_FLAG_2GHZ |
 						APPLE80211_C_FLAG_ACTIVE;
@@ -739,9 +729,11 @@ MyClass::apple80211Request_GET
 			if (_flags & flagScanning)
 				return kIOReturnBusy;
 			if (_resultsPending == 0) {
+				DBG(dbgInfo, "Sent all scan results\n");
 				_resultsPending = _scanResults->getCount(); // wrap back for later
 				return -1; // XXX
 			} else {
+				DBG(dbgInfo, "Sending scan result no. %u\n", _scanResults->getCount());
 				apple80211_scan_result** ret = (apple80211_scan_result**) data;
 				OSData* oneResult = OSDynamicCast(OSData,
 								  _scanResults->getObject(--(_resultsPending)));
@@ -889,8 +881,9 @@ MyClass::enable
 		_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 	}
 	
+	setLinkStatus(kIONetworkLinkValid);
 	_netif->setLinkState(kIO80211NetworkLinkDown);	// down until we associate
-	_queue->setCapacity(_hwInfo.txQueueSize);
+	getOutputQueue()->setCapacity(_hwInfo.txQueueSize);
 	
 	_flags |= flagInterfaceEnabled;
 	IOLockUnlock(_lock);
@@ -913,9 +906,9 @@ MyClass::disable
 		goto fail;
 	
 	_netif->setLinkState(kIO80211NetworkLinkDown);
-	_queue->setCapacity(0);
-	_queue->stop();
-	_queue->flush();
+	getOutputQueue()->setCapacity(0);
+	getOutputQueue()->stop();
+	getOutputQueue()->flush();
 	
 	if (_flags & flagPowerOn) {		// Turn off if needed
 		if (turnPowerOff() != kIOReturnSuccess)
@@ -981,10 +974,11 @@ MyClass::outputPacket
 	const uint8_t llc_dat[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 	const uint8_t llc_arp[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
 	
-	if (etherhdr->etherType == ETHERTYPE_ARP)
-		mbuf_copyback(m, 6, 6, llc_arp, MBUF_DONTWAIT);
+	uint8_t* data = (uint8_t*) mbuf_data(m);
+	if (*(data + 13) == 0x06) // it's 0x08 0x06 for 12th and 13th bytes
+		mbuf_copyback(m, 0, 6, llc_arp, MBUF_DONTWAIT);
 	else
-		mbuf_copyback(m, 6, 6, llc_dat, MBUF_DONTWAIT);			
+		mbuf_copyback(m, 0, 6, llc_dat, MBUF_DONTWAIT);	
 	
 	/* Remove extra 6 bytes from front.
 	 * Explanation: Ethernet frame format is: [addr1][addr2][ethertype][data..]
@@ -1008,18 +1002,21 @@ MyClass::outputPacket
 	/* At this point, the mbuf has the data portion and txhdr has the 24 byte 802.11 header.
 	 * Now we want to prepend the 802.11 header to the mbuf
 	 */
-	mbuf_prepend(&m, sizeof(txhdr), MBUF_DONTWAIT);
-	if (!m) {
+	mbuf_t mnew = allocatePacket(mbuf_pkthdr_len(m) + sizeof(txhdr));
+	if (!mnew) {
 		DBG(dbgWarning, "Could not prepend 802.11 frame header during Tx. Packet dropped.\n");
 		return kIOReturnOutputDropped;
 	}
-	mbuf_copyback(m, 0, sizeof(txhdr), &txhdr, MBUF_DONTWAIT);
+	mbuf_copyback(mnew, 0, sizeof(txhdr), &txhdr, MBUF_DONTWAIT);
+	mbuf_copyback(mnew, sizeof(txhdr), mbuf_pkthdr_len(m), mbuf_data(m), MBUF_DONTWAIT);
+	freePacket(m);
 	
 	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
-	return outputFrame( hdr, m );
+	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_pkthdr_len(mnew));
+	return outputFrame( hdr, mnew );
 }
 
 
@@ -1056,9 +1053,10 @@ MyClass::inputFrame
 		mbuf_adj(m, 24 - 6);
 		
 		/* Now overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
-		mbuf_copyback(m, 0, 12, &ethhdr, MBUF_DONTWAIT);
+		bcopy(&ethhdr, mbuf_data(m), 12);
 		
 		/* Our job is now done. Pass it up the networking stack */
+		DBG(dbgInfo, "Inputting DATA packet len=%u\n", mbuf_pkthdr_len(m));
 		inputPacket(m);
 	} else
 	if ((_flags & flagScanning) &&	/* If a scan is in progress */
@@ -1074,8 +1072,6 @@ MyClass::inputFrame
 		handleScanResultFrame(hdr, m);
 		
 	} else {
-		DBG(dbgWarning, "Unhandled frame type %u subtype %u received. Dropped.\n",
-		    rxhdr->hdr.type, rxhdr->hdr.subtype);
 		freePacket(m);
 	}
 }
@@ -1097,6 +1093,8 @@ MyClass::handleScanResultFrame
 	
 	/* Allocate storage for the new result */
 	apple80211_scan_result res;
+	
+	DBG(dbgInfo, "Got scan result. Already have %u results\n", _scanResults->getCount());
 	
 	/* Convert and store into the allocated OSData */
 	probeResponseToScanResult(hdr, m, &res);
@@ -1131,6 +1129,14 @@ MyClass::handleScanResultFrame
 	_scanResults->setObject(scanresult);
 	_resultsPending = _scanResults->getCount();	// at this point we've (hopefully) not yet started sending
 							// results so this should be safe
+	
+	// Safety mechanism: if we end up with TOO many results, abort the scan
+	if (_resultsPending > MAX_SCAN_RESULTS) {
+		DBG(dbgWarning, "Aborting scan due to too many results.\n");
+		abortScan();
+		report(msgScanAborted);
+	}
+	
 	RELEASE(scanresult); // adding to array retains a reference
 }
 
@@ -1333,12 +1339,18 @@ MyClass::report
 		case msgPowerOn:
 		case msgRadioOn:
 			_flags |= flagPowerOn;
+			_flags &= ~(flagAssociating);
+			_flags &= ~(flagScanning);
+			_staState = staInit;
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;
 			
 		case msgPowerOff:
 		case msgRadioOff:
 			_flags &= ~(flagPowerOn);
+			_flags &= ~(flagAssociating);
+			_flags &= ~(flagScanning);
+			_staState = staInit;
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;			
 		
@@ -1347,7 +1359,7 @@ MyClass::report
 			_staState = staAssociated;
 			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
 			_netif->setLinkState(kIO80211NetworkLinkUp);
-			_queue->start();
+			getOutputQueue()->start();
 			break;
 			
 		case msgAssociationFailed:
@@ -1383,8 +1395,8 @@ MyClass::report
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
 			_netif->setLinkState(kIO80211NetworkLinkDown);
-			_queue->stop();
-			_queue->flush();
+			getOutputQueue()->stop();
+			getOutputQueue()->flush();
 			break;
 			
 		case msgDeauthenticated:
@@ -1394,16 +1406,12 @@ MyClass::report
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
 			_netif->setLinkState(kIO80211NetworkLinkDown);
-			_queue->stop();
-			_queue->flush();
-			break;
-			
-		case msgScanAborted:
-			_flags &= ~(flagScanning);
-			_netif->postMessage(APPLE80211_M_SCAN_DONE);
+			getOutputQueue()->stop();
+			getOutputQueue()->flush();
 			break;
 			
 		case msgScanCompleted:
+		case msgScanAborted:
 			_flags &= ~(flagScanning);
 			_netif->postMessage(APPLE80211_M_SCAN_DONE);
 			break;
