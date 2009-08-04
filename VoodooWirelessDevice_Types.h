@@ -18,7 +18,7 @@
 namespace org_voodoo_wireless {
 	
 	struct ScanParameters {
-		enum ScanType {	scanTypeActive = 1, scanTypePassive = 2, scanTypeBackground = 4 };
+		enum ScanType {	scanTypeActive = 1, scanTypePassive = 2 };
 		ScanType		scanType;	// Type of scan (active/passive..)
 		IEEE::PHYModes		scanPhyMode;	// 11a,b,g or n on which to scan
 		IEEE::MACAddress	bssid;		// BSSID to which scan is directed
