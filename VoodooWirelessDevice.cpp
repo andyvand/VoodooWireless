@@ -63,6 +63,21 @@ MyClass::start
 	if (_lock == 0)
 		return false;
 	
+	/* Retain a reference to superclass's workloop */
+	_workloop = OSDynamicCast(IO80211WorkLoop, getWorkLoop());
+	_workloop->retain();
+	
+	/* Create the command pool for queueing HW subroutines */
+	_commandPool = IOCommandPool::withWorkLoop(_workloop);
+	
+	/* Do HW specific initialization */
+	if (allocateResources(provider) != kIOReturnSuccess) {
+		DBG(dbgFatal, "Could not allocate hardware resources!\n");
+		return false;
+	} else {
+		_flags |= flagResourcesAllocated;
+	}
+	
 	/* Get some basic info about this hardware */
 	getHardwareInfo(&_hwInfo);
 	
@@ -72,7 +87,7 @@ MyClass::start
 	
 	if (_hwInfo.supportedModes & IEEE::dot11B)
 		maxSpeed = 11000000;
-
+	
 	if (_hwInfo.supportedModes & IEEE::dot11A || _hwInfo.supportedModes & IEEE::dot11G)
 		maxSpeed = 54000000;
 	
@@ -83,21 +98,6 @@ MyClass::start
 	IONetworkMedium::addMedium(mediumDict, _medium);
 	publishMediumDictionary(mediumDict);
 	setSelectedMedium(_medium);
-	
-	/* Retain a reference to superclass's workloop */
-	_workloop = OSDynamicCast(IO80211WorkLoop, getWorkLoop());
-	_workloop->retain();
-	
-	/* Create the command pool for queueing HW subroutines */
-	_commandPool = IOCommandPool::withWorkLoop(_workloop);
-	
-	/* Now do HW specific initialization */
-	if (allocateResources(provider) != kIOReturnSuccess) {
-		DBG(dbgFatal, "Could not allocate hardware resources!\n");
-		return false;
-	} else {
-		_flags |= flagResourcesAllocated;
-	}
 	
 	/* HW resources are allocated, we can attach the interface now */
 	if (!attachInterface((IONetworkInterface**) &_netif, /* attach to DLIL = */ true)) {
@@ -111,6 +111,9 @@ MyClass::start
 	
 	/* And finally register this service */
 	registerService();
+	
+	/* And start our worker thread */
+	IOCreateThread(OSMemberFunctionCast(IOThreadFunc, this, &MyClass::workerThread), /* arg= */ 0);
 	
 	return true;
 }
@@ -126,11 +129,13 @@ MyClass::stop
 	if (_lock)
 		IOLockFree(_lock);
 	
+	/* This caused KP on unload so let this memory leak
 	RELEASE(_hwInfo.manufacturer);
 	RELEASE(_hwInfo.model);
 	RELEASE(_hwInfo.hardwareRevision);
 	RELEASE(_hwInfo.driverVersion);
 	RELEASE(_hwInfo.firmwareVersion);
+	 */
 	RELEASE(_scanResults);
 	RELEASE(_queue);
 	RELEASE(_netif);
@@ -197,13 +202,31 @@ MyClass::apple80211Request_SET
 				case APPLE80211_POWER_ON:
 					if (_flags & flagPowerOn) // already on
 						return kIOReturnError;
-					return enqueueCommand(VoodooWirelessCommand::cmdPowerOn);
+					if (turnPowerOn() != kIOReturnSuccess) {
+						DBG(dbgFatal, "CMD: Turn power on command failed\n");
+						return kIOReturnError;
+					} else {
+						DBG(dbgInfo, "CMD: Card power turned ON\n");
+						_flags |= flagPowerOn;
+						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+						return kIOReturnSuccess;
+					}
+					
 				case APPLE80211_POWER_OFF:
 					if (!(_flags & flagPowerOn)) // already off
 						return kIOReturnError;
-					return enqueueCommand(VoodooWirelessCommand::cmdPowerOff);
+					if (turnPowerOff() != kIOReturnSuccess) {
+						DBG(dbgFatal, "CMD: Turn power off command failed\n");
+						return kIOReturnError;
+					} else {
+						DBG(dbgInfo, "CMD: Card power turned OFF\n");
+						_flags &= ~(flagPowerOn);
+						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+						return kIOReturnSuccess;
+					}
+					
 				default:
-					break;
+					return kIOReturnError;
 			};
 		}
 			
@@ -245,7 +268,17 @@ MyClass::apple80211Request_SET
 				cl->channel[i].flags  = ret->channels[i].flags;
 			}
 			
-			return enqueueCommand(VoodooWirelessCommand::cmdStartScan, scan, cl);
+			if (startScan(scan, cl) != kIOReturnSuccess)
+			{
+				DBG(dbgWarning, "CMD: Start scan command failed\n");
+				return kIOReturnError;
+			} else {
+				// scan has started, clear existing results in anticipation of new ones
+				_scanResults->flushCollection();
+				DBG(dbgInfo, "CMD: Start scan command completed\n");
+				_flags |= flagScanning;
+				return kIOReturnSuccess;
+			}
 		}
 			
 		case APPLE80211_IOC_ASSOCIATE:
@@ -257,9 +290,12 @@ MyClass::apple80211Request_SET
 			    (_flags & flagScanning))
 				return kIOReturnBusy;
 			
-			// If we are scanning, schedule to abort it before associating
-			if (_flags & flagScanning)
-				enqueueCommand(VoodooWirelessCommand::cmdAbortScan);
+			// If we are scanning, abort it before associating
+			if (_flags & flagScanning) {
+				DBG(dbgWarning, "Assoc request during scan. Aborting scan first\n");
+				abortScan();
+				report(msgScanAborted);
+			}
 			
 			// Prepare assoc params and enqueue the command
 			IOC_STRUCT(apple80211_assoc_data);
@@ -300,7 +336,15 @@ MyClass::apple80211Request_SET
 			bcopy(sr,  &_currentNetwork,   sizeof(*sr));
 			
 			// Now enqueue the command
-			return enqueueCommand(VoodooWirelessCommand::cmdAssociate, params);
+			if (associate(params) != kIOReturnSuccess) {
+				DBG(dbgWarning, "CMD: Association command failed\n");
+				return kIOReturnError;
+			} else {
+				DBG(dbgInfo, "CMD: Association command completed\n");
+				_flags |= flagAssociating;
+				_staState = staInit;
+				return kIOReturnSuccess;
+			}
 		}
 		
 		case APPLE80211_IOC_TXPOWER:
@@ -333,8 +377,16 @@ MyClass::apple80211Request_SET
 			if ((_flags & flagScanning) ||
 			    (_flags & flagAssociating))
 				return kIOReturnBusy;			
-			return enqueueCommand(VoodooWirelessCommand::cmdDisassociate);
-		
+			if (disassociate() != kIOReturnSuccess) {
+				DBG(dbgWarning, "Disassociation failed\n");
+				return kIOReturnError;
+			} else {
+				DBG(dbgInfo, "Disassociated\n");
+				_staState = staInit;
+				_flags &= ~(flagAssociating);
+				return kIOReturnSuccess;
+			}
+
 		case APPLE80211_IOC_SHORT_RETRY_LIMIT:
 		{
 			if ((_flags & flagScanning) ||
@@ -1347,6 +1399,7 @@ MyClass::report
 			
 		case msgScanAborted:
 			_flags &= ~(flagScanning);
+			_netif->postMessage(APPLE80211_M_SCAN_DONE);
 			break;
 			
 		case msgScanCompleted:
