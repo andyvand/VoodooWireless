@@ -7,11 +7,24 @@
  *
  */
 
+#include <IOKit/IOLib.h>
 #include "VoodooWirelessCipher.h"
+
 #define MyClass	VoodooWirelessCipher
 #define super	IOService
 
 OSDefineMetaClassAndStructors(VoodooWirelessCipher, IOService);
+
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 0);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 1);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 2);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 3);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 4);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 5);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 6);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 7);
+OSMetaClassDefineReservedUnused(VoodooWirelessCipher, 8);
+
 
 bool MyClass::start(IOService* provider) {
 	if (super::start(provider) == false)

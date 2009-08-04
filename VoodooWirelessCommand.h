@@ -13,6 +13,8 @@
 #include <IOKit/IOCommand.h>
 
 class VoodooWirelessCommand : public IOCommand {
+	OSDeclareDefaultStructors(VoodooWirelessCommand)
+	
 public:
 	bool		succeeded;
 	enum CommandType {
@@ -28,14 +30,7 @@ public:
 	void*		arg0;
 	void*		arg1;
 	
-	static VoodooWirelessCommand* withType(CommandType cmdType, void* arg0 = 0, void* arg1 = 0) {
-		VoodooWirelessCommand* cmd = new VoodooWirelessCommand;
-		if (!cmd) return 0;
-		cmd->commandType = cmdType;
-		cmd->arg0 = arg0;
-		cmd->arg1 = arg1;
-		return cmd;
-	}
+	static VoodooWirelessCommand* withType(CommandType cmdType, void* arg0 = 0, void* arg1 = 0);
 };
 
 

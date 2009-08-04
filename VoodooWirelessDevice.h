@@ -32,6 +32,7 @@ using namespace org_voodoo_wireless;
 
 class VoodooWirelessDevice : public IO80211Controller
 {
+	OSDeclareDefaultStructors(VoodooWirelessDevice)
 public:
 	/* NOTE: None of the public functions need to be implemented by subclasses. Proper implementations
 	 *       is already provided by this superclass */

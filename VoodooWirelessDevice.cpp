@@ -21,6 +21,32 @@
 #define IOC_STRUCT(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
 #define toMbps(x)		(((x) & 0x7f) / 2)
 
+OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
+
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 0);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 1);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 2);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 3);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 4);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 5);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 6);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 7);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 8);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 9);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 10);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 11);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 12);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 13);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 14);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 15);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 16);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 17);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 18);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 19);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 20);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 21);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 22);
+OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 23);
 
 enum {
 	// Flags for _flags member variable
