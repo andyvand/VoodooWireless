@@ -111,6 +111,7 @@ private:
 	IO80211WorkLoop*	_workloop;
 	IOCommandPool*		_commandPool;
 	OSArray*		_scanResults;
+	uint32_t		_totalResultsInCurrentScan;
 	uint32_t		_resultsPending;
 	apple80211_scan_result	_currentNetwork;
 	apple80211_assoc_data	_currentAssocData;

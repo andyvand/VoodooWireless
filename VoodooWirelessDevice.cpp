@@ -208,6 +208,7 @@ MyClass::apple80211Request_SET
 						return kIOReturnError;
 					} else {
 						DBG(dbgInfo, "CMD: Card power turned ON\n");
+						_flags &= ~(flagScanning | flagAssociating);
 						_flags |= flagPowerOn;
 						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 						return kIOReturnSuccess;
@@ -221,7 +222,7 @@ MyClass::apple80211Request_SET
 						return kIOReturnError;
 					} else {
 						DBG(dbgInfo, "CMD: Card power turned OFF\n");
-						_flags &= ~(flagPowerOn);
+						_flags &= ~(flagPowerOn | flagScanning | flagAssociating);
 						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 						return kIOReturnSuccess;
 					}
@@ -257,7 +258,7 @@ MyClass::apple80211Request_SET
 				scan.ssid = OSData::withBytesNoCopy((char*) got->ssid, got->ssid_len);
 			else
 				scan.ssid = OSData::withCapacity(0);
-			
+			_totalResultsInCurrentScan = 0;
 			if (startScan(&scan, &_hwInfo.supportedChannels) != kIOReturnSuccess)
 			{
 				DBG(dbgWarning, "CMD: Start scan command failed\n");
@@ -323,6 +324,7 @@ MyClass::apple80211Request_SET
 			
 			// Save assoc and network for later use
 			bcopy(got, &_currentAssocData, sizeof(*got));
+			bcopy(&params.bssid, &_currentAssocData.ad_bssid, 6); // apple sends the bssid usually zeroed
 			bcopy(sr,  &_currentNetwork,   sizeof(*sr));
 			
 			// Now enqueue the command
@@ -812,6 +814,7 @@ MyClass::workerThread
 				break;
 			
 			case VoodooWirelessCommand::cmdStartScan:
+				_totalResultsInCurrentScan = 0;
 				if (startScan((ScanParameters*)    cmd->arg0,
 					      (IEEE::ChannelList*) cmd->arg1) != kIOReturnSuccess)
 				{
@@ -952,7 +955,7 @@ MyClass::outputPacket
 		return kIOReturnOutputDropped;
 	}
 	
-	if (mbuf_pkthdr_len(m) <= 14) {
+	if (mbuf_len(m) <= 14) {
 		DBG(dbgWarning, "Tx packet too small (len=%u). Dropping.\n", mbuf_pkthdr_len(m));
 		freePacket(m);
 		return kIOReturnOutputDropped;
@@ -974,11 +977,10 @@ MyClass::outputPacket
 	const uint8_t llc_dat[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 	const uint8_t llc_arp[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
 	
-	uint8_t* data = (uint8_t*) mbuf_data(m);
-	if (*(data + 13) == 0x06) // it's 0x08 0x06 for 12th and 13th bytes
-		mbuf_copyback(m, 0, 6, llc_arp, MBUF_DONTWAIT);
+	if (etherhdr->etherType == ETHERTYPE_ARP)
+		bcopy(llc_arp, ((uint8_t*) mbuf_data(m)) + 6, 6);
 	else
-		mbuf_copyback(m, 0, 6, llc_dat, MBUF_DONTWAIT);	
+		bcopy(llc_dat, ((uint8_t*) mbuf_data(m)) + 6, 6);
 	
 	/* Remove extra 6 bytes from front.
 	 * Explanation: Ethernet frame format is: [addr1][addr2][ethertype][data..]
@@ -1007,15 +1009,30 @@ MyClass::outputPacket
 		DBG(dbgWarning, "Could not prepend 802.11 frame header during Tx. Packet dropped.\n");
 		return kIOReturnOutputDropped;
 	}
+	
+	/* Copy 802.11 header */
 	mbuf_copyback(mnew, 0, sizeof(txhdr), &txhdr, MBUF_DONTWAIT);
-	mbuf_copyback(mnew, sizeof(txhdr), mbuf_pkthdr_len(m), mbuf_data(m), MBUF_DONTWAIT);
+	
+	/* Now coalesce and copy the payload */
+	size_t left = mbuf_pkthdr_len(m);
+	size_t total = left;
+	
+	while (left > 0 && m != 0) {
+		mbuf_copyback(mnew, total - left + sizeof(txhdr), mbuf_len(m), mbuf_data(m), MBUF_DONTWAIT);
+		left -= mbuf_len(m);
+		m = mbuf_next(m);
+	};
+	
 	freePacket(m);
+	
+	/* Dump the packet */
+	DUMP_MBUF(mnew, "Tx");
 	
 	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
-	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_pkthdr_len(mnew));
+	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_len(mnew));
 	return outputFrame( hdr, mnew );
 }
 
@@ -1033,8 +1050,7 @@ MyClass::inputFrame
 	/* Update signal level (2-point moving average) */
 	_currentSignalLevel = (_currentSignalLevel + todBm(hdr.signalLevel)) / 2;
 	
-	if ((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame) &&
-	    (rxhdr->hdr.subtype	== IEEE::WiFiFrameHeader::Data))
+	if ((rxhdr->hdr.type	== IEEE::WiFiFrameHeader::DataFrame))
 	{
 		/*
 		 * We got sent an 802.11 data frame. Convert to Ethernet II frame and pass to OS X
@@ -1044,19 +1060,26 @@ MyClass::inputFrame
 		 * Format of output:	[Ethernet hdr][ethertype][data...]
 		 *			      12            2					*/
 		
+		/* Sanity check first (ie. for Null frames etc) */
+		if (mbuf_len(m) <= (6 + 2 + sizeof(*rxhdr))) {
+			// no data?
+			DBG(dbgWarning, "Too small packet received len=%u. Dropped.", mbuf_len(m));
+			freePacket(m);
+			return;
+		}
+		
 		/* Copy source and dest MAC addresses */
 		bcopy(rxhdr->sa, ethhdr.sa, 6);
 		bcopy(rxhdr->da, ethhdr.da, 6);
 		
-		/* We don't need Wifi header anymore, so trim bytes from front so that we are
-		 * left with 6 bytes before LLC header (which will all be overwritten). */
+		/* Overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
+		bcopy(&ethhdr, ((uint8_t*) mbuf_data(m)) + 24 - 6, 12);
+		
+		/* We don't need Wifi header anymore, so trim bytes from front */
 		mbuf_adj(m, 24 - 6);
 		
-		/* Now overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
-		bcopy(&ethhdr, mbuf_data(m), 12);
-		
 		/* Our job is now done. Pass it up the networking stack */
-		DBG(dbgInfo, "Inputting DATA packet len=%u\n", mbuf_pkthdr_len(m));
+		DUMP_MBUF(m, "Rx");
 		inputPacket(m);
 	} else
 	if ((_flags & flagScanning) &&	/* If a scan is in progress */
@@ -1068,10 +1091,11 @@ MyClass::inputFrame
 	     (rxhdr->hdr.subtype== IEEE::WiFiFrameHeader::Beacon))))
 	{
 		/* Then we have a scan result. Store this */
-		
 		handleScanResultFrame(hdr, m);
 		
 	} else {
+		DBG(dbgWarning, "Unknown packet type received, len = %u, type %u subtype %u\n",
+		    mbuf_pkthdr_len(m), rxhdr->hdr.type, rxhdr->hdr.subtype);
 		freePacket(m);
 	}
 }
@@ -1094,7 +1118,7 @@ MyClass::handleScanResultFrame
 	/* Allocate storage for the new result */
 	apple80211_scan_result res;
 	
-	DBG(dbgInfo, "Got scan result. Already have %u results\n", _scanResults->getCount());
+	//DBG(dbgInfo, "Got scan result #%u\n", _scanResults->getCount() + 1);
 	
 	/* Convert and store into the allocated OSData */
 	probeResponseToScanResult(hdr, m, &res);
@@ -1121,7 +1145,7 @@ MyClass::handleScanResultFrame
 	}
 	
 	if (found) {
-		DBG(dbgWarning, "Skipping duplicate scan result\n");
+		//DBG(dbgWarning, "Skipping duplicate scan result\n");
 		RELEASE(scanresult);
 		return;
 	}
@@ -1131,8 +1155,8 @@ MyClass::handleScanResultFrame
 							// results so this should be safe
 	
 	// Safety mechanism: if we end up with TOO many results, abort the scan
-	if (_resultsPending > MAX_SCAN_RESULTS) {
-		DBG(dbgWarning, "Aborting scan due to too many results.\n");
+	if (++_totalResultsInCurrentScan > MAX_SCAN_RESULTS) {
+		DBG(dbgWarning, "Aborting scan due to too many responses. Actual results = %u\n", _resultsPending);
 		abortScan();
 		report(msgScanAborted);
 	}
@@ -1351,6 +1375,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_flags &= ~(flagScanning);
 			_staState = staInit;
+			getOutputQueue()->stop();
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;			
 		
