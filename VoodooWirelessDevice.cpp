@@ -22,6 +22,13 @@
 #define IOC_STRUCT_GOT(type)	type* got = (type*) data;
 #define toMbps(x)		(((x) & 0x7f) / 2)
 
+#define NETLINK_DOWN		_netif->setLinkState(kIO80211NetworkLinkDown);			\
+				getOutputQueue()->stop();					\
+				getOutputQueue()->flush();
+
+#define NETLINK_UP		_netif->setLinkState(kIO80211NetworkLinkUp);			\
+				getOutputQueue()->start();					\
+
 OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
 
 enum {
@@ -45,7 +52,7 @@ enum {
 	staAssociated
 };
 
-const int org_voodoo_wireless_debug = (dbgInfo | dbgFatal | dbgWarning);
+const int org_voodoo_wireless_debug = (dbgFatal);
 #define MAX_SCAN_RESULTS 64
 
 //*********************************************************************************************************************
@@ -210,6 +217,8 @@ MyClass::apple80211Request_SET
 						DBG(dbgInfo, "CMD: Card power turned ON\n");
 						_flags &= ~(flagScanning | flagAssociating);
 						_flags |= flagPowerOn;
+						_staState = staInit;
+						NETLINK_DOWN; // because we just turned on
 						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 						return kIOReturnSuccess;
 					}
@@ -223,6 +232,8 @@ MyClass::apple80211Request_SET
 					} else {
 						DBG(dbgInfo, "CMD: Card power turned OFF\n");
 						_flags &= ~(flagPowerOn | flagScanning | flagAssociating);
+						_staState = staInit;
+						NETLINK_DOWN;
 						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 						return kIOReturnSuccess;
 					}
@@ -358,7 +369,7 @@ MyClass::apple80211Request_SET
 		{
 			if ((_flags & flagScanning) ||
 			    (_flags & flagAssociating))
-				return kIOReturnBusy;			
+				return kIOReturnBusy;
 			IOC_STRUCT_GOT(apple80211_protmode_data);
 			if (got->protmode == APPLE80211_PROTMODE_OFF)
 				got->threshold = 2346; // max threshold == turns it off
@@ -908,10 +919,7 @@ MyClass::disable
 	if (!(_flags & flagInterfaceEnabled))	// Don't disable already disabled interface
 		goto fail;
 	
-	_netif->setLinkState(kIO80211NetworkLinkDown);
-	getOutputQueue()->setCapacity(0);
-	getOutputQueue()->stop();
-	getOutputQueue()->flush();
+	NETLINK_DOWN;
 	
 	if (_flags & flagPowerOn) {		// Turn off if needed
 		if (turnPowerOff() != kIOReturnSuccess)
@@ -1016,6 +1024,7 @@ MyClass::outputPacket
 	/* Now coalesce and copy the payload */
 	size_t left = mbuf_pkthdr_len(m);
 	size_t total = left;
+	mbuf_t origm = m;
 	
 	while (left > 0 && m != 0) {
 		mbuf_copyback(mnew, total - left + sizeof(txhdr), mbuf_len(m), mbuf_data(m), MBUF_DONTWAIT);
@@ -1023,10 +1032,10 @@ MyClass::outputPacket
 		m = mbuf_next(m);
 	};
 	
-	freePacket(m);
+	freePacket(origm);
 	
 	/* Dump the packet */
-	DUMP_MBUF(mnew, "Tx");
+	//DUMP_MBUF(mnew, "Tx");
 	
 	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
 	TxFrameHeader hdr;
@@ -1079,7 +1088,7 @@ MyClass::inputFrame
 		mbuf_adj(m, 24 - 6);
 		
 		/* Our job is now done. Pass it up the networking stack */
-		DUMP_MBUF(m, "Rx");
+		//DUMP_MBUF(m, "Rx");
 		inputPacket(m);
 	} else
 	if ((_flags & flagScanning) &&	/* If a scan is in progress */
@@ -1122,11 +1131,13 @@ MyClass::handleScanResultFrame
 	
 	/* Convert and store into the allocated OSData */
 	probeResponseToScanResult(hdr, m, &res);
+	freePacket(m); // Because we no longer need the mbuf, all data is in res
+	
 	OSData* scanresult = OSData::withBytes(&res, sizeof(res));
 	if (!scanresult) {
 		DBG(dbgWarning, "Could not allocate OSData to store scan result\n");
 		return;
-	}	
+	}
 	
 	/* Now compare with each item in the scan results array to make sure this is not a duplicate */
 	OSData* s; bool found = false;
@@ -1366,6 +1377,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_flags &= ~(flagScanning);
 			_staState = staInit;
+			NETLINK_DOWN;
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;
 			
@@ -1375,7 +1387,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_flags &= ~(flagScanning);
 			_staState = staInit;
-			getOutputQueue()->stop();
+			NETLINK_DOWN;
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;			
 		
@@ -1383,8 +1395,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_staState = staAssociated;
 			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
-			_netif->setLinkState(kIO80211NetworkLinkUp);
-			getOutputQueue()->start();
+			NETLINK_UP;
 			break;
 			
 		case msgAssociationFailed:
@@ -1419,9 +1430,7 @@ MyClass::report
 				_lastReasonCode = *((IEEE::ReasonCode*) arg);
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
-			_netif->setLinkState(kIO80211NetworkLinkDown);
-			getOutputQueue()->stop();
-			getOutputQueue()->flush();
+			NETLINK_DOWN;
 			break;
 			
 		case msgDeauthenticated:
@@ -1430,9 +1439,7 @@ MyClass::report
 				_lastReasonCode = *((IEEE::ReasonCode*) arg);
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
-			_netif->setLinkState(kIO80211NetworkLinkDown);
-			getOutputQueue()->stop();
-			getOutputQueue()->flush();
+			NETLINK_DOWN;
 			break;
 			
 		case msgScanCompleted:
