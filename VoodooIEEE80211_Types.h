@@ -23,7 +23,8 @@ namespace IEEE {
 	
 	struct WEPKey {
 		uint8_t		index;		// 0 to 3
-		OSString*	key;		// 40 or 104 bits (5 or 13 bytes)
+		size_t		length;		// 40 or 104 bits (5 or 13 bytes)
+		uint8_t		key[13];
 	};
 	
 	enum PHYModes {

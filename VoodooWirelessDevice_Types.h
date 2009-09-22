@@ -158,6 +158,7 @@ namespace org_voodoo_wireless {
 		msgPowerOn,			// HW power was turned on without being requested
 		msgRadioOff,			// PHY was turned off by user or power saving
 		msgRadioOn,			// PHY was turned on by user or power saving
+		msgTxReady,			// Sent following a kIOReturnOutputStall to indicate that Tx can resume
 		
 		msgScanAborted,			// scan was aborted (by HW, not as response to client request)
 		msgScanCompleted,		// scanning all specified chanels is completed

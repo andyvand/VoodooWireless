@@ -196,8 +196,23 @@ bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t m) {
 }
 
 bool MyClass::decap(VoodooWirelessCipherContext* context, mbuf_t m) {
-	/* Not yet supported */
-	return false;
+	int		hdrlen = 24; // non QoS data frames only
+	Context*	ctx = (Context*) context;
+	
+	/*
+	 * Decrypt the frame
+	 */
+	if (!wep_decrypt(ctx, m, hdrlen))
+		return false;
+	
+	/*
+	 * Copy up 802.11 header and strip crypto bits.
+	 */
+	bcopy(mbuf_data(m), ((uint8_t*) mbuf_data(m)) + _cipherInfo.headerSize, hdrlen);
+	mbuf_adj(m,  (_cipherInfo.headerSize));
+	mbuf_adj(m, -(_cipherInfo.trailerSize));
+	
+	return true;
 }
 
 bool MyClass::enMIC(VoodooWirelessCipherContext* context, mbuf_t m) {
@@ -289,3 +304,80 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 #undef S_SWAP
 }
 
+
+bool MyClass::wep_decrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
+#define S_SWAP(a,b) do { uint8_t t = S[a]; S[a] = S[b]; S[b] = t; } while(0)
+	mbuf_t		m = m0;
+	uint8_t		rc4key[IEEE80211_WEP_IVLEN + IEEE80211_KEYBUF_SIZE];
+	uint8_t		icv[IEEE80211_WEP_CRCLEN];
+	uint32_t	i, j, k, crc;
+	size_t		buflen, data_len;
+	uint8_t		S[256];
+	uint8_t		*pos;
+	u_int		off, keylen;
+	
+	/* NB: this assumes the header was pulled up */
+	memcpy(rc4key, ((uint8_t*)mbuf_data(m)) + hdrlen, IEEE80211_WEP_IVLEN);
+	memcpy(rc4key + IEEE80211_WEP_IVLEN, ctx->key->key, ctx->key->keyLength);
+	
+	/* Setup RC4 state */
+	for (i = 0; i < 256; i++)
+		S[i] = i;
+	j = 0;
+	keylen = ctx->key->keyLength + IEEE80211_WEP_IVLEN;
+	for (i = 0; i < 256; i++) {
+		j = (j + S[i] + rc4key[i % keylen]) & 0xff;
+		S_SWAP(i, j);
+	}
+	
+	off = hdrlen + _cipherInfo.headerSize;
+	data_len = mbuf_pkthdr_len(m) - (off + _cipherInfo.trailerSize),
+	
+	/* Compute CRC32 over unencrypted data and apply RC4 to data */
+	crc = ~0;
+	i = j = 0;
+	pos = ((uint8_t*)mbuf_data(m)) + off;
+	buflen = mbuf_len(m) - off;
+	for (;;) {
+		if (buflen > data_len)
+			buflen = data_len;
+		data_len -= buflen;
+		for (k = 0; k < buflen; k++) {
+			i = (i + 1) & 0xff;
+			j = (j + S[i]) & 0xff;
+			S_SWAP(i, j);
+			*pos ^= S[(S[i] + S[j]) & 0xff];
+			crc = crc32_table[(crc ^ *pos) & 0xff] ^ (crc >> 8);
+			pos++;
+		}
+		m = mbuf_next(m);
+		if (m == NULL) {
+			if (data_len != 0) {		/* out of data */
+				return false;
+			}
+			break;
+		}
+		pos = ((uint8_t*)mbuf_data(m));
+		buflen = mbuf_len(m);
+	}
+	crc = ~crc;
+	
+	/* Encrypt little-endian CRC32 and verify that it matches with
+	 * received ICV */
+	icv[0] = crc;
+	icv[1] = crc >> 8;
+	icv[2] = crc >> 16;
+	icv[3] = crc >> 24;
+	for (k = 0; k < IEEE80211_WEP_CRCLEN; k++) {
+		i = (i + 1) & 0xff;
+		j = (j + S[i]) & 0xff;
+		S_SWAP(i, j);
+		/* XXX assumes ICV is contiguous in mbuf */
+		if ((icv[k] ^ S[(S[i] + S[j]) & 0xff]) != *pos++) {
+			/* ICV mismatch - drop frame */
+			return false;
+		}
+	}
+	return true;
+#undef S_SWAP
+}

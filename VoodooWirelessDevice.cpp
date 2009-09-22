@@ -22,13 +22,6 @@
 #define IOC_STRUCT_GOT(type)	type* got = (type*) data;
 #define toMbps(x)		(((x) & 0x7f) / 2)
 
-#define NETLINK_DOWN		_netif->setLinkState(kIO80211NetworkLinkDown);			\
-				getOutputQueue()->stop();					\
-				getOutputQueue()->flush();
-
-#define NETLINK_UP		_netif->setLinkState(kIO80211NetworkLinkUp);			\
-				getOutputQueue()->start();					\
-
 OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
 
 enum {
@@ -89,6 +82,16 @@ MyClass::start
 		_flags |= flagResourcesAllocated;
 	}
 	
+	OSObject* cipher = waitForService(propertyMatching(OSSymbol::withCStringNoCopy(CIPHER_PROPERTY_NAME),
+							   OSString::withCStringNoCopy("WEP")));	
+	if (!cipher) {
+		DBG(dbgWarning, "No WEP cipher found, WEP connections may not work\n");
+	} else {
+		_cipher = OSDynamicCast(VoodooWirelessCipher, cipher);
+		_cipher->retain();
+		DBG(dbgInfo, "WEP cipher found and retained.\n");
+	}
+	
 	/* Get some basic info about this hardware */
 	getHardwareInfo(&_hwInfo);
 	
@@ -120,6 +123,9 @@ MyClass::start
 	_netif->bpfAttach(/* DLT	 = */ 105,
 			  /* Header size = */ 30);
 	
+	/* Start the worker thread */
+	IOCreateThread(OSMemberFunctionCast(IOThreadFunc, this, &VoodooWirelessDevice::workerThread), 0);
+	
 	/* And finally register this service */
 	registerService();
 	
@@ -131,6 +137,15 @@ void
 MyClass::stop
 ( IOService* provider )
 {
+	enqueueCommand(VoodooWirelessCommand::cmdExitThread);
+	
+	if (_cipher) {
+		_cipher->freeContext(_cipherContext);
+		_cipherContext = 0;
+		_cipher->release();
+		_cipher = 0;
+	}
+	
 	freeResources(provider);
 	_flags &= ~(flagResourcesAllocated);
 	
@@ -210,33 +225,14 @@ MyClass::apple80211Request_SET
 				case APPLE80211_POWER_ON:
 					if (_flags & flagPowerOn) // already on
 						return kIOReturnError;
-					if (turnPowerOn() != kIOReturnSuccess) {
-						DBG(dbgFatal, "CMD: Turn power on command failed\n");
-						return kIOReturnError;
-					} else {
-						DBG(dbgInfo, "CMD: Card power turned ON\n");
-						_flags &= ~(flagScanning | flagAssociating);
-						_flags |= flagPowerOn;
-						_staState = staInit;
-						NETLINK_DOWN; // because we just turned on
-						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
-						return kIOReturnSuccess;
-					}
+					else
+						return enqueueCommand(VoodooWirelessCommand::cmdPowerOn);
 					
 				case APPLE80211_POWER_OFF:
 					if (!(_flags & flagPowerOn)) // already off
 						return kIOReturnError;
-					if (turnPowerOff() != kIOReturnSuccess) {
-						DBG(dbgFatal, "CMD: Turn power off command failed\n");
-						return kIOReturnError;
-					} else {
-						DBG(dbgInfo, "CMD: Card power turned OFF\n");
-						_flags &= ~(flagPowerOn | flagScanning | flagAssociating);
-						_staState = staInit;
-						NETLINK_DOWN;
-						_netif->postMessage(APPLE80211_M_POWER_CHANGED);
-						return kIOReturnSuccess;
-					}
+					else
+						return enqueueCommand(VoodooWirelessCommand::cmdPowerOff);
 					
 				default:
 					return kIOReturnError;
@@ -270,6 +266,7 @@ MyClass::apple80211Request_SET
 			else
 				scan.ssid = OSData::withCapacity(0);
 			_totalResultsInCurrentScan = 0;
+			
 			if (startScan(&scan, &_hwInfo.supportedChannels) != kIOReturnSuccess)
 			{
 				DBG(dbgWarning, "CMD: Start scan command failed\n");
@@ -331,7 +328,17 @@ MyClass::apple80211Request_SET
 			
 			if (got->ad_flags & APPLE80211_ASSOC_F_CLOSED)
 				params.closedNetwork = true;
-			// TODO: wep key and extra IEs
+			
+			/* Set the WEP key if any */
+			if (got->ad_key.key_cipher_type == APPLE80211_CIPHER_WEP_40 ||
+			    got->ad_key.key_cipher_type == APPLE80211_CIPHER_WEP_104)
+			{
+				params.wepKey.length	= got->ad_key.key_len;
+				params.wepKey.index	= got->ad_key.key_index;
+				bcopy(got->ad_key.key, params.wepKey.key, params.wepKey.length);
+			} else {
+				params.wepKey.length	= 0;
+			}
 			
 			// Save assoc and network for later use
 			bcopy(got, &_currentAssocData, sizeof(*got));
@@ -364,7 +371,7 @@ MyClass::apple80211Request_SET
 			IOC_STRUCT_GOT(apple80211_frag_threshold_data);
 			return setConfiguration(configFragmentationThreshold, &got->threshold);
 		}
-			
+		
 		case APPLE80211_IOC_PROTMODE:
 		{
 			if ((_flags & flagScanning) ||
@@ -741,16 +748,24 @@ MyClass::apple80211Request_GET
 		{
 			if (_flags & flagScanning)
 				return kIOReturnBusy;
-			if (_resultsPending == 0) {
+			if (_resultsPending <= 0) {
 				DBG(dbgInfo, "Sent all scan results\n");
 				_resultsPending = _scanResults->getCount(); // wrap back for later
 				return -1; // XXX
 			} else {
 				DBG(dbgInfo, "Sending scan result no. %u\n", _scanResults->getCount());
 				apple80211_scan_result** ret = (apple80211_scan_result**) data;
-				OSData* oneResult = OSDynamicCast(OSData,
-								  _scanResults->getObject(--(_resultsPending)));
+								
+				OSObject* resultobj = _scanResults->getObject(--_resultsPending);
+				if (!resultobj) { // no results - error condition
+					DBG(dbgWarning, "ERR: no scan result found for index %u\n", _resultsPending);
+					_resultsPending = _scanResults->getCount(); // wrap for later
+					return -1;
+				}
+				
+				OSData*	oneResult = OSDynamicCast(OSData, resultobj);
 				*ret = (apple80211_scan_result*) oneResult->getBytesNoCopy();
+				
 				return kIOReturnSuccess;
 			}
 		}
@@ -798,6 +813,9 @@ MyClass::workerThread
 		/* Get one command from the queue */
 		cmd = OSDynamicCast(VoodooWirelessCommand, _commandPool->getCommand(true));
 		
+		if (!cmd)
+			continue;
+		
 		/* Do what is supposed to be done */
 		switch (cmd->commandType) {
 			case VoodooWirelessCommand::cmdExitThread:
@@ -809,8 +827,7 @@ MyClass::workerThread
 					DBG(dbgFatal, "CMD: Turn power on command failed\n");
 				} else {
 					DBG(dbgInfo, "CMD: Card power turned ON\n");
-					_flags |= flagPowerOn;
-					_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+					setPowerOn();
 				}
 				break;
 				
@@ -819,8 +836,7 @@ MyClass::workerThread
 					DBG(dbgFatal, "CMD: Turn power off command failed\n");
 				} else {
 					DBG(dbgInfo, "CMD: Card power turned OFF\n");
-					_flags &= ~(flagPowerOn);
-					_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+					setPowerOff();
 				}
 				break;
 			
@@ -919,7 +935,7 @@ MyClass::disable
 	if (!(_flags & flagInterfaceEnabled))	// Don't disable already disabled interface
 		goto fail;
 	
-	NETLINK_DOWN;
+	setLinkDown();
 	
 	if (_flags & flagPowerOn) {		// Turn off if needed
 		if (turnPowerOff() != kIOReturnSuccess)
@@ -1041,6 +1057,12 @@ MyClass::outputPacket
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
+	
+	if (_cipherContext) { // lazy way to check if we need to encap it (i.e. if there is a context, do encap)
+		_cipher->encap(_cipherContext, mnew);
+		hdr.encrypted = true;
+	}
+	
 	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_len(mnew));
 	return outputFrame( hdr, mnew );
 }
@@ -1052,6 +1074,10 @@ MyClass::inputFrame
 {
 	IEEE::RxDataFrameHeader*	rxhdr;
 	IEEE::EthernetFrameHeader	ethhdr;
+	
+	if (_cipherContext && !hdr.decrypted) {
+		_cipher->decap(_cipherContext, m);
+	}
 	
 	rxhdr = (IEEE::RxDataFrameHeader*) mbuf_data(m);
 	bcopy(&hdr, &_lastRxFrameHeader, sizeof(hdr));	// save for later use during apple80211request etc.
@@ -1377,7 +1403,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_flags &= ~(flagScanning);
 			_staState = staInit;
-			NETLINK_DOWN;
+			setLinkDown();
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;
 			
@@ -1387,7 +1413,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_flags &= ~(flagScanning);
 			_staState = staInit;
-			NETLINK_DOWN;
+			setLinkDown();
 			_netif->postMessage(APPLE80211_M_POWER_CHANGED);
 			break;			
 		
@@ -1395,7 +1421,7 @@ MyClass::report
 			_flags &= ~(flagAssociating);
 			_staState = staAssociated;
 			_netif->postMessage(APPLE80211_M_ASSOC_DONE);
-			NETLINK_UP;
+			setLinkUp();
 			break;
 			
 		case msgAssociationFailed:
@@ -1430,7 +1456,7 @@ MyClass::report
 				_lastReasonCode = *((IEEE::ReasonCode*) arg);
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
-			NETLINK_DOWN;
+			setLinkDown();
 			break;
 			
 		case msgDeauthenticated:
@@ -1439,7 +1465,7 @@ MyClass::report
 				_lastReasonCode = *((IEEE::ReasonCode*) arg);
 			else
 				_lastReasonCode = IEEE::reasonUnspecified;
-			NETLINK_DOWN;
+			setLinkDown();
 			break;
 			
 		case msgScanCompleted:
@@ -1485,7 +1511,67 @@ MyClass::getMaxPacketSize
 	return kIOReturnSuccess;
 }
 
+void
+MyClass::setPowerOn( )
+{
+	_flags &= ~(flagScanning | flagAssociating);
+	_flags |= flagPowerOn;
+	_staState = staInit;
+	setLinkDown(); // because we just turned on
+	_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+}
 
+void
+MyClass::setPowerOff( )
+{
+	_flags &= ~(flagPowerOn | flagScanning | flagAssociating);
+	_staState = staInit;
+	setLinkDown();
+	_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+}
+
+void
+MyClass::setLinkUp( )
+{
+	/*
+	 * Setup a cipher if needed before marking link as up
+	 */
+	
+	if (_currentAssocData.ad_key.key_cipher_type == APPLE80211_CIPHER_WEP_40 ||
+	    _currentAssocData.ad_key.key_cipher_type == APPLE80211_CIPHER_WEP_104)
+	{
+		if (_cipher) { // only if we actually HAVE a wep cipher
+			apple80211_key ad = _currentAssocData.ad_key;
+			
+			_cipher->freeContext(_cipherContext); // free any old context
+			_cipherContext	= _cipher->initContext(); // create fresh context for this connection
+			
+			VoodooWirelessCipherKey key;
+			key.keyLength	= ad.key_len;
+			key.keyIndex	= ad.key_index;
+			bcopy(ad.key, key.key, key.keyLength);
+			
+			_cipher->setKey(_cipherContext, &key);
+			DBG(dbgInfo, "WEP software cipher initialized for this connection\n");
+		} else
+			DBG(dbgWarning, "WEP connection is up, but we have no SW cipher!\n")
+	}
+	
+	_netif->setLinkState(kIO80211NetworkLinkUp);
+	getOutputQueue()->start();
+}
+
+void
+MyClass::setLinkDown( )
+{
+	_netif->setLinkState(kIO80211NetworkLinkDown);
+	getOutputQueue()->stop();
+	getOutputQueue()->flush();
+	if (_cipher) {
+		_cipher->freeContext(_cipherContext);
+		_cipherContext = 0;
+	}
+}
 
 //*********************************************************************************************************************
 // Following functions are dummy implementations but they must succeed for the network driver to work

@@ -24,7 +24,8 @@ public:
 		cmdAbortScan,
 		cmdAssociate,
 		cmdDisassociate,
-		cmdExitThread // This 'special' command type signals the worker thread to exit
+		cmdUserAction,	// This is an arbitrary function call scheduled by the subclass
+		cmdExitThread	// This 'special' command type signals the worker thread to exit
 	};
 	CommandType	commandType;
 	void*		arg0;

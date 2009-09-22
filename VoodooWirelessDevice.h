@@ -27,6 +27,7 @@
 #include "VoodooWirelessFamily.h"
 #include "VoodooIEEE80211.h"
 #include "VoodooWirelessDevice_Types.h"
+#include "VoodooWirelessCipher.h"
 
 using namespace org_voodoo_wireless;
 
@@ -119,6 +120,8 @@ private:
 	int			_currentNoiseLevel;
 	int			_currentSignalLevel;
 	RxFrameHeader		_lastRxFrameHeader;
+	VoodooWirelessCipher*	_cipher;
+	VoodooWirelessCipherContext* _cipherContext;
 	
 	int			todBm(int val);
 	void			workerThread(void* arg);
@@ -126,6 +129,10 @@ private:
 	IOReturn		probeResponseToScanResult(RxFrameHeader hdr, mbuf_t m, apple80211_scan_result* ret);
 	bool			scanResultsAreSimilar(const apple80211_scan_result* a, const apple80211_scan_result* b);
 	apple80211_scan_result*	findScanResult(apple80211_assoc_data* a);
+	void			setPowerOn();
+	void			setPowerOff();
+	void			setLinkUp();
+	void			setLinkDown();
 	
 	IOReturn		apple80211Request_GET(int request_number, void* data);
 	IOReturn		apple80211Request_SET(int request_number, void* data);

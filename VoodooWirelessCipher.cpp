@@ -47,11 +47,12 @@ void MyClass::registerService(IOOptionBits options) {
 	
 	/* Set cipher properties in the IORegistry, which will be used to find it */
 	setProperty(CIPHER_PROPERTY_NAME,	_cipherInfo.cipherName);
+	/*
 	setProperty(CIPHER_PROPERTY_TYPE,	_cipherInfo.cipherType);
 	setProperty(CIPHER_PROPERTY_MICSIZE,	_cipherInfo.micSize);
 	setProperty(CIPHER_PROPERTY_HEADERSIZE,	_cipherInfo.headerSize);
 	setProperty(CIPHER_PROPERTY_TRAILERSIZE,_cipherInfo.trailerSize);
-	
+	*/
 	IOLog("Registered VoodooWireless crypto module: %s\n", _cipherInfo.cipherName);
 }
 
