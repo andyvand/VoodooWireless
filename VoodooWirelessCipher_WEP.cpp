@@ -140,22 +140,31 @@ bool MyClass::setKey(VoodooWirelessCipherContext* ctx, VoodooWirelessCipherKey* 
 	return true;
 }
 
-bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t m) {
+bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t* m) {
 	uint32_t	iv;
 	uint8_t*	ivp;
+	size_t		datasize;
 	int		hdrlen;
 	Context*	ctx = (Context*) context;
 	
 	hdrlen = 24; /* XXX: For now we support only 802.11 non-qos data frames for which the header size is 24 */
+	
 	/*
 	 * Copy down 802.11 header and add the IV + KeyID + CRC32
 	 */
-	mbuf_prepend(&m, _cipherInfo.headerSize, MBUF_DONTWAIT);
-	if (m == 0)
-		return 0;
-	ivp = (uint8_t*) mbuf_data(m);
-	bcopy(ivp + _cipherInfo.headerSize, ivp, hdrlen);
-	ivp += hdrlen;
+	
+	ivp = (uint8_t*) mbuf_data(*m); // first save pointer to actual start of 802.11 header
+	
+	datasize = mbuf_pkthdr_len(*m) - hdrlen; // and size of data portion
+	
+	if (mbuf_prepend(m, hdrlen, MBUF_DONTWAIT) != 0) // now prepend enough bytes
+		return false;
+	
+	mbuf_copyback(*m, 0, hdrlen, ivp, MBUF_DONTWAIT); // copy the header in newly allocated space
+	bcopy(ivp + hdrlen, ivp + 4, datasize); // pull up data portion over old header, leaving 4 bytes in front
+						// (and thus 20 bytes at back)
+	
+	mbuf_adj(*m, -16); // shave off unneeded 16 bytes (out of 20, leaving 4 for WEP CRC32)
 	
 	/* 
 	 * XXX
@@ -195,7 +204,7 @@ bool MyClass::encap(VoodooWirelessCipherContext* context, mbuf_t m) {
 	return wep_encrypt(ctx, m, hdrlen);
 }
 
-bool MyClass::decap(VoodooWirelessCipherContext* context, mbuf_t m) {
+bool MyClass::decap(VoodooWirelessCipherContext* context, mbuf_t* m) {
 	int		hdrlen = 24; // non QoS data frames only
 	Context*	ctx = (Context*) context;
 	
@@ -208,36 +217,35 @@ bool MyClass::decap(VoodooWirelessCipherContext* context, mbuf_t m) {
 	/*
 	 * Copy up 802.11 header and strip crypto bits.
 	 */
-	bcopy(mbuf_data(m), ((uint8_t*) mbuf_data(m)) + _cipherInfo.headerSize, hdrlen);
-	mbuf_adj(m,  (_cipherInfo.headerSize));
-	mbuf_adj(m, -(_cipherInfo.trailerSize));
+	bcopy(mbuf_data(*m), ((uint8_t*) mbuf_data(*m)) + _cipherInfo.headerSize, hdrlen);
+	mbuf_adj(*m,  (_cipherInfo.headerSize));
+	mbuf_adj(*m, -(_cipherInfo.trailerSize));
 	
 	return true;
 }
 
-bool MyClass::enMIC(VoodooWirelessCipherContext* context, mbuf_t m) {
+bool MyClass::enMIC(VoodooWirelessCipherContext* context, mbuf_t* m) {
 	/* Nothing to do */
 	return true;
 }
 
-bool MyClass::deMIC(VoodooWirelessCipherContext* context, mbuf_t m) {
+bool MyClass::deMIC(VoodooWirelessCipherContext* context, mbuf_t* m) {
 	/* Nothing to do */
 	return true;
 }
 
-bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
+bool MyClass::wep_encrypt(Context* ctx, mbuf_t* m0, size_t hdrlen) {
 #define S_SWAP(a,b) do { uint8_t t = S[a]; S[a] = S[b]; S[b] = t; } while(0)
-	mbuf_t		m = m0;
+	mbuf_t		m = *m0;
 	uint8_t		rc4key[IEEE80211_WEP_IVLEN + IEEE80211_KEYBUF_SIZE];
 	uint8_t		icv[IEEE80211_WEP_CRCLEN];
 	uint32_t	i, j, k, crc;
-	size_t		buflen, data_len;
+	size_t		buflen, data_len, old_len;
 	uint8_t		S[256];
 	uint8_t*	pos;
 	u_int		off, keylen;
 	
-	/* NB: this assumes the header was pulled up */
-	memcpy(rc4key, ((uint8_t *)mbuf_data(m)) + hdrlen, IEEE80211_WEP_IVLEN);
+	mbuf_copydata(m, hdrlen, IEEE80211_WEP_IVLEN, rc4key);
 	memcpy(rc4key + IEEE80211_WEP_IVLEN, ctx->key->key, ctx->key->keyLength);
 	
 	/* Setup RC4 state */
@@ -251,13 +259,23 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 	}
 	
 	off = hdrlen + _cipherInfo.headerSize;
-	data_len = mbuf_pkthdr_len(m) - off;
+	data_len = mbuf_pkthdr_len(m) - off - IEEE80211_WEP_CRCLEN;
 	
 	/* Compute CRC32 over unencrypted data and apply RC4 to data */
 	crc = ~0;
 	i = j = 0;
-	pos = ((uint8_t*) mbuf_data(m)) + off;
-	buflen = mbuf_len(m) - off;
+	
+	/* Handle case where offset exceeds size of first mbuf in the chain */
+	if (off > mbuf_len(m)) {
+		old_len = mbuf_len(m);
+		m = mbuf_next(m);
+		pos = ((uint8_t*) mbuf_data(m)) + (off - old_len);
+		buflen = mbuf_len(m);
+	} else {
+		pos = ((uint8_t*) mbuf_data(m)) + off;
+		buflen = mbuf_len(m) - off;
+	}
+	
 	for (;;) {
 		if (buflen > data_len)
 			buflen = data_len;
@@ -274,7 +292,7 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 				return false;
 			}
 			break;
-		}
+		}		
 		m	= mbuf_next(m);
 		pos	= (uint8_t*) mbuf_data(m);
 		buflen	= mbuf_len(m);
@@ -293,21 +311,16 @@ bool MyClass::wep_encrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
 		icv[k] ^= S[(S[i] + S[j]) & 0xff];
 	}
 	
-	mbuf_prepend(&m, IEEE80211_WEP_CRCLEN, MBUF_DONTWAIT);
-	if (m == 0)
-		return false;
-
-	bcopy((uint8_t*) mbuf_data(m) + IEEE80211_WEP_CRCLEN, mbuf_data(m), mbuf_len(m) - IEEE80211_WEP_CRCLEN);
-	bcopy(icv, (uint8_t*) mbuf_data(m) + mbuf_len(m) - IEEE80211_WEP_CRCLEN, IEEE80211_WEP_CRCLEN);
+	mbuf_copyback(m, mbuf_pkthdr_len(m) - IEEE80211_WEP_CRCLEN, IEEE80211_WEP_CRCLEN, icv, MBUF_DONTWAIT);
 	
 	return true;
 #undef S_SWAP
 }
 
 
-bool MyClass::wep_decrypt(Context* ctx, mbuf_t m0, size_t hdrlen) {
+bool MyClass::wep_decrypt(Context* ctx, mbuf_t* m0, size_t hdrlen) {
 #define S_SWAP(a,b) do { uint8_t t = S[a]; S[a] = S[b]; S[b] = t; } while(0)
-	mbuf_t		m = m0;
+	mbuf_t		m = *m0;
 	uint8_t		rc4key[IEEE80211_WEP_IVLEN + IEEE80211_KEYBUF_SIZE];
 	uint8_t		icv[IEEE80211_WEP_CRCLEN];
 	uint32_t	i, j, k, crc;

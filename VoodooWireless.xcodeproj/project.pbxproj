@@ -15,6 +15,7 @@
 		2F052F0D1027738500FCCD01 /* VoodooWirelessCipher.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F5422C51003195700DBCDF0 /* VoodooWirelessCipher.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2F052FF5102845A100FCCD01 /* VoodooWirelessCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F052FF4102845A100FCCD01 /* VoodooWirelessCommand.cpp */; };
 		2F06F19C101F2A7300B4D15F /* VoodooWirelessCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F06F19A101F2A7300B4D15F /* VoodooWirelessCommand.h */; };
+		2F07D6C310C7EAFF00EC34A0 /* VoodooWireless.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2F052AF8102772C100FCCD01 /* VoodooWireless.framework */; };
 		2F241B130FE251E20066F582 /* VoodooWirelessDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */; };
 		2F241B140FE251E20066F582 /* VoodooWirelessDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */; };
 		2F5422B31003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F5422B21003174E00DBCDF0 /* VoodooWirelessCipher_WEP.cpp */; };
@@ -27,6 +28,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2F07D6C210C7EADF00EC34A0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /Library/Frameworks;
+			dstSubfolderSpec = 0;
+			files = (
+				2F07D6C310C7EAFF00EC34A0 /* VoodooWireless.framework in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		2FF0881610043A4B006BE48B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -205,6 +216,7 @@
 				2F052AF4102772C100FCCD01 /* Resources */,
 				2F052AF5102772C100FCCD01 /* Sources */,
 				2F052AF6102772C100FCCD01 /* Frameworks */,
+				2F07D6C210C7EADF00EC34A0 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -385,7 +397,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1.0.2;
+				CURRENT_PROJECT_VERSION = 1.0.5;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -393,7 +405,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless;
-				MODULE_VERSION = 1.0.2;
+				MODULE_VERSION = 1.0.5;
 				PRODUCT_NAME = VoodooWireless;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -403,14 +415,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CURRENT_PROJECT_VERSION = 1.0.2;
+				CURRENT_PROJECT_VERSION = 1.0.5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless;
-				MODULE_VERSION = 1.0.2;
+				MODULE_VERSION = 1.0.5;
 				PRODUCT_NAME = VoodooWireless;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -447,8 +459,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.3;
+				DYLIB_CURRENT_VERSION = 1.0.4;
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -470,8 +482,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.3;
+				DYLIB_CURRENT_VERSION = 1.0.4;
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -498,7 +510,7 @@
 				INFOPLIST_FILE = "VoodooWirelessCipher_WEP-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless.cipher.WEP;
-				MODULE_VERSION = 0.1;
+				MODULE_VERSION = 1.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = VoodooWirelessCipher_WEP;
 				WRAPPER_EXTENSION = kext;
@@ -516,7 +528,7 @@
 				INFOPLIST_FILE = "VoodooWirelessCipher_WEP-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless.cipher.WEP;
-				MODULE_VERSION = 0.1;
+				MODULE_VERSION = 1.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = VoodooWirelessCipher_WEP;
 				WRAPPER_EXTENSION = kext;
@@ -536,7 +548,7 @@
 				INFOPLIST_FILE = "VoodooWirelessCipher-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless.Cipher;
-				MODULE_VERSION = 1.0;
+				MODULE_VERSION = 1.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = VoodooWirelessCipher;
 				WRAPPER_EXTENSION = kext;
@@ -554,7 +566,7 @@
 				INFOPLIST_FILE = "VoodooWirelessCipher-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless.Cipher;
-				MODULE_VERSION = 1.0;
+				MODULE_VERSION = 1.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = VoodooWirelessCipher;
 				WRAPPER_EXTENSION = kext;

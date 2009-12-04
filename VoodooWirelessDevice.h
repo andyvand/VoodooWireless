@@ -120,8 +120,10 @@ private:
 	int			_currentNoiseLevel;
 	int			_currentSignalLevel;
 	RxFrameHeader		_lastRxFrameHeader;
-	VoodooWirelessCipher*	_cipher;
-	VoodooWirelessCipherContext* _cipherContext;
+	
+	VoodooWirelessCipher*		_cipher;
+	VoodooWirelessCipherKey		_cipherKey;
+	VoodooWirelessCipherContext*	_cipherContext;
 	
 	int			todBm(int val);
 	void			workerThread(void* arg);

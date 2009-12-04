@@ -18,11 +18,11 @@
 #define DBGC(level, a, b...) { if (org_voodoo_wireless_debug & level)	\
 					IOLog(a, ## b); }
 
-#define DUMP_MBUF(mnew, rxtx)	DBG(dbgInfo, "%s packet dump, len = %u: [", rxtx, mbuf_pkthdr_len(mnew));\
+#define DUMP_MBUF(mnew, rxtx)	{DBG(dbgInfo, "%s packet dump, len = %u: [ ", rxtx, mbuf_pkthdr_len(mnew));\
 				uint8_t* d = (uint8_t*) mbuf_data(mnew);\
 				for (int i = 0; i < mbuf_pkthdr_len(mnew); i++, d++)\
 					DBGC(dbgInfo, "0x%x ", *d);\
-				DBG(dbgInfo,"]\n")
+				DBGC(dbgInfo,"]\n");}
 
 #define __packed __attribute__((__packed__))
 

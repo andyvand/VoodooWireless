@@ -45,7 +45,7 @@ enum {
 	staAssociated
 };
 
-const int org_voodoo_wireless_debug = (dbgFatal);
+const int org_voodoo_wireless_debug = (dbgFatal | dbgWarning | dbgInfo);
 #define MAX_SCAN_RESULTS 64
 
 //*********************************************************************************************************************
@@ -123,8 +123,9 @@ MyClass::start
 	_netif->bpfAttach(/* DLT	 = */ 105,
 			  /* Header size = */ 30);
 	
-	/* Start the worker thread */
+	/* Start the worker thread
 	IOCreateThread(OSMemberFunctionCast(IOThreadFunc, this, &VoodooWirelessDevice::workerThread), 0);
+	*/
 	
 	/* And finally register this service */
 	registerService();
@@ -137,7 +138,7 @@ void
 MyClass::stop
 ( IOService* provider )
 {
-	enqueueCommand(VoodooWirelessCommand::cmdExitThread);
+	//enqueueCommand(VoodooWirelessCommand::cmdExitThread);
 	
 	if (_cipher) {
 		_cipher->freeContext(_cipherContext);
@@ -225,14 +226,24 @@ MyClass::apple80211Request_SET
 				case APPLE80211_POWER_ON:
 					if (_flags & flagPowerOn) // already on
 						return kIOReturnError;
-					else
-						return enqueueCommand(VoodooWirelessCommand::cmdPowerOn);
+					else {
+						if (turnPowerOn() == kIOReturnSuccess) {
+							setPowerOn();
+							return kIOReturnSuccess;
+						} else
+							return kIOReturnError;
+					}
 					
 				case APPLE80211_POWER_OFF:
 					if (!(_flags & flagPowerOn)) // already off
 						return kIOReturnError;
-					else
-						return enqueueCommand(VoodooWirelessCommand::cmdPowerOff);
+					else {
+						if (turnPowerOff() == kIOReturnSuccess) {
+							setPowerOff();
+							return kIOReturnSuccess;
+						} else
+							return kIOReturnError;
+					}
 					
 				default:
 					return kIOReturnError;
@@ -907,8 +918,7 @@ MyClass::enable
 	if (!(_flags & flagPowerOn)) {		// Turn hw power on if needed
 		if (turnPowerOn() != kIOReturnSuccess)
 			goto fail;
-		_flags |= flagPowerOn;
-		_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+		setPowerOn();
 	}
 	
 	setLinkStatus(kIONetworkLinkValid);
@@ -940,8 +950,7 @@ MyClass::disable
 	if (_flags & flagPowerOn) {		// Turn off if needed
 		if (turnPowerOff() != kIOReturnSuccess)
 			goto fail;
-		_flags &= ~(flagPowerOn);
-		_netif->postMessage(APPLE80211_M_POWER_CHANGED);
+		setPowerOff();
 	}
 	
 	_flags &= ~(flagInterfaceEnabled);
@@ -1051,19 +1060,24 @@ MyClass::outputPacket
 	freePacket(origm);
 	
 	/* Dump the packet */
-	//DUMP_MBUF(mnew, "Tx");
+	DUMP_MBUF(mnew, "Tx");
 	
 	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
 	TxFrameHeader hdr;
 	hdr.rate	= IEEE::rateUnspecified;
 	hdr.encrypted	= false;
 	
-	if (_cipherContext) { // lazy way to check if we need to encap it (i.e. if there is a context, do encap)
-		_cipher->encap(_cipherContext, mnew);
+	if (_cipher && _cipherContext) { // lazy way to check if we need to encap it
+		if (_cipher->encap(_cipherContext, &mnew) == false) { // some error during encap
+			if (mnew) freePacket(mnew);
+			return kIOReturnOutputDropped;
+		}
 		hdr.encrypted = true;
+		IEEE::WiFiFrameHeader* whdr = (IEEE::WiFiFrameHeader*) mbuf_data(mnew);
+		whdr->protectedFrame = true;
 	}
-	
-	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_len(mnew));
+	DUMP_MBUF(mnew, "Tx WEP");
+	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_pkthdr_len(mnew));
 	return outputFrame( hdr, mnew );
 }
 
@@ -1074,10 +1088,6 @@ MyClass::inputFrame
 {
 	IEEE::RxDataFrameHeader*	rxhdr;
 	IEEE::EthernetFrameHeader	ethhdr;
-	
-	if (_cipherContext && !hdr.decrypted) {
-		_cipher->decap(_cipherContext, m);
-	}
 	
 	rxhdr = (IEEE::RxDataFrameHeader*) mbuf_data(m);
 	bcopy(&hdr, &_lastRxFrameHeader, sizeof(hdr));	// save for later use during apple80211request etc.
@@ -1107,6 +1117,19 @@ MyClass::inputFrame
 		bcopy(rxhdr->sa, ethhdr.sa, 6);
 		bcopy(rxhdr->da, ethhdr.da, 6);
 		
+		DUMP_MBUF(m, "Rx WIFI");
+		
+		/* Decrypt if needed */
+		if (_cipher && _cipherContext) {
+			if (_cipher->decap(_cipherContext, &m) == false) {
+				DBG(dbgWarning, "Rx wep frame decryption failed!\n");
+				if (m) freePacket(m);
+				return;
+			}
+		}
+		
+		DUMP_MBUF(m, "Rx WEP");
+		
 		/* Overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
 		bcopy(&ethhdr, ((uint8_t*) mbuf_data(m)) + 24 - 6, 12);
 		
@@ -1114,7 +1137,7 @@ MyClass::inputFrame
 		mbuf_adj(m, 24 - 6);
 		
 		/* Our job is now done. Pass it up the networking stack */
-		//DUMP_MBUF(m, "Rx");
+		DUMP_MBUF(m, "Rx OSX");
 		inputPacket(m);
 	} else
 	if ((_flags & flagScanning) &&	/* If a scan is in progress */
@@ -1541,17 +1564,16 @@ MyClass::setLinkUp( )
 	    _currentAssocData.ad_key.key_cipher_type == APPLE80211_CIPHER_WEP_104)
 	{
 		if (_cipher) { // only if we actually HAVE a wep cipher
-			apple80211_key ad = _currentAssocData.ad_key;
 			
-			_cipher->freeContext(_cipherContext); // free any old context
+			if (_cipherContext)
+				_cipher->freeContext(_cipherContext); // free any old context
 			_cipherContext	= _cipher->initContext(); // create fresh context for this connection
 			
-			VoodooWirelessCipherKey key;
-			key.keyLength	= ad.key_len;
-			key.keyIndex	= ad.key_index;
-			bcopy(ad.key, key.key, key.keyLength);
+			_cipherKey.keyLength	= _currentAssocData.ad_key.key_len;
+			_cipherKey.keyIndex	= _currentAssocData.ad_key.key_index;
+			bcopy(_currentAssocData.ad_key.key, _cipherKey.key, _cipherKey.keyLength);
 			
-			_cipher->setKey(_cipherContext, &key);
+			_cipher->setKey(_cipherContext, &_cipherKey);
 			DBG(dbgInfo, "WEP software cipher initialized for this connection\n");
 		} else
 			DBG(dbgWarning, "WEP connection is up, but we have no SW cipher!\n")
@@ -1568,7 +1590,8 @@ MyClass::setLinkDown( )
 	getOutputQueue()->stop();
 	getOutputQueue()->flush();
 	if (_cipher) {
-		_cipher->freeContext(_cipherContext);
+		if (_cipherContext)
+			_cipher->freeContext(_cipherContext);
 		_cipherContext = 0;
 	}
 }

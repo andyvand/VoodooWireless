@@ -15,7 +15,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.1</string>
+	<string>1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>WEP cipher module</key>
@@ -35,7 +35,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>org.voodoo.wireless.Cipher</key>
-		<string>1.0</string>
+		<string>1.1</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.9.9</string>
 		<key>com.apple.kpi.iokit</key>

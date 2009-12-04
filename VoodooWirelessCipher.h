@@ -74,10 +74,10 @@ public:
 	/* NOTE: The following functions return true on success, false on failure */
 	virtual bool	setKey(VoodooWirelessCipherContext* ctx, VoodooWirelessCipherKey* key);
 	
-	virtual bool	encap(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	decap(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	enMIC(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	deMIC(VoodooWirelessCipherContext* ctx, mbuf_t m);
+	virtual bool	encap(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	decap(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	enMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	deMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m);
 	
 protected:
 	struct ExpansionData {};	// reserved, for internal use only

@@ -46,14 +46,14 @@ public:
 	
 	virtual bool	setKey(VoodooWirelessCipherContext* ctx, VoodooWirelessCipherKey* key);
 	
-	virtual bool	encap(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	decap(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	enMIC(VoodooWirelessCipherContext* ctx, mbuf_t m);
-	virtual bool	deMIC(VoodooWirelessCipherContext* ctx, mbuf_t m);
+	virtual bool	encap(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	decap(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	enMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m);
+	virtual bool	deMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m);
 	
 private:
-	bool		wep_encrypt(Context* ctx, mbuf_t m, size_t hdrlen);
-	bool		wep_decrypt(Context* ctx, mbuf_t m, size_t hdrlen);
+	bool		wep_encrypt(Context* ctx, mbuf_t* m, size_t hdrlen);
+	bool		wep_decrypt(Context* ctx, mbuf_t* m, size_t hdrlen);
 };
 
 #endif//_H_VOODOOWIRELESSCIPHER_WEP_H

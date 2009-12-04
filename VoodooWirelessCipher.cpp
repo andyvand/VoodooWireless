@@ -75,22 +75,22 @@ bool MyClass::setKey(VoodooWirelessCipherContext* ctx, VoodooWirelessCipherKey* 
 	return false;
 }
 
-bool MyClass::encap(VoodooWirelessCipherContext* ctx, mbuf_t m)
+bool MyClass::encap(VoodooWirelessCipherContext* ctx, mbuf_t* m)
 {
 	return false;
 }
 
-bool MyClass::decap(VoodooWirelessCipherContext* ctx, mbuf_t m)
+bool MyClass::decap(VoodooWirelessCipherContext* ctx, mbuf_t* m)
 {
 	return false;
 }
 
-bool MyClass::enMIC(VoodooWirelessCipherContext* ctx, mbuf_t m)
+bool MyClass::enMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m)
 {
 	return false;
 }
 
-bool MyClass::deMIC(VoodooWirelessCipherContext* ctx, mbuf_t m)
+bool MyClass::deMIC(VoodooWirelessCipherContext* ctx, mbuf_t* m)
 {
 	return false;
 }
