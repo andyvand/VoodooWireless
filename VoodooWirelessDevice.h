@@ -18,9 +18,9 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandPool.h>
 
-#include <IOKit/apple80211/IO80211Controller.h>
-#include <IOKit/apple80211/IO80211Interface.h>
-#include <IOKit/apple80211/IO80211WorkLoop.h>
+#include "IO80211Controller.h"
+#include "IO80211Interface.h"
+#include "IO80211WorkLoop.h"
 #include <IOKit/network/IOOutputQueue.h>
 #include <IOKit/network/IOGatedOutputQueue.h>
 
@@ -56,6 +56,7 @@ public:
 	const OSString*		newVendorString		( ) const;
 	const OSString*		newModelString		( ) const;
 	const OSString*		newRevisionString	( ) const;
+	IOReturn		getHardwareAddressForInterface( IO80211Interface* netif, IOEthernetAddress* addr );
 	IOReturn		getHardwareAddress	( IOEthernetAddress* addr );
 	virtual IOReturn	setPromiscuousMode	( IOEnetPromiscuousMode mode );
 	virtual IOReturn	setMulticastMode	( IOEnetMulticastMode mode );

@@ -14,15 +14,18 @@
 
 #include <libkern/c++/OSData.h>
 #include <libkern/c++/OSSymbol.h>
+#include <sys/sysctl.h>
 
 #define MyClass			VoodooWirelessDevice
 #define super			IO80211Controller
-#define IOCTL_GET_REQ		3223349705UL // magic number alert!
+#define IOCTL_GET_REQ		3223611849 // magic number alert!
 #define IOC_STRUCT_RET(type)	type* ret = (type*) data; ret->version = APPLE80211_VERSION;
 #define IOC_STRUCT_GOT(type)	type* got = (type*) data;
 #define toMbps(x)		(((x) & 0x7f) / 2)
 
 OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
+
+//SYSCTL_INT(_debug, OID_AUTO, voodoowireless, CTLFLAG_RW, &org_voodoo_wireless_debug, 0, "VoodooWireless driver debug output level");
 
 enum {
 	// Flags for _flags member variable
@@ -34,18 +37,11 @@ enum {
 };
 
 enum {
-	dbgFatal	= 0x1,
-	dbgWarning	= 0x2,
-	dbgInfo		= 0x4
-};
-
-enum {
 	staInit,
 	staAuthenticated,
 	staAssociated
 };
 
-const int org_voodoo_wireless_debug = (dbgFatal | dbgWarning | dbgInfo);
 #define MAX_SCAN_RESULTS 64
 
 //*********************************************************************************************************************
@@ -192,6 +188,7 @@ SInt32
 MyClass::apple80211Request
 ( UInt32 request_type, int request_number, IO80211Interface* interface, void* data )
 {
+	DBG(dbgInfo, "Airport request %u (%s %u)\n", request_type, (request_type == IOCTL_GET_REQ) ? "GET" : "SET", request_number);
 	if (request_type == IOCTL_GET_REQ)
 		return apple80211Request_GET(request_number, data);
 	else
@@ -224,6 +221,7 @@ MyClass::apple80211Request_SET
 			IOC_STRUCT_GOT(apple80211_power_data);
 			switch (got->power_state[0]) {
 				case APPLE80211_POWER_ON:
+					DBG(dbgInfo, "Setting power on\n");
 					if (_flags & flagPowerOn) // already on
 						return kIOReturnError;
 					else {
@@ -235,6 +233,7 @@ MyClass::apple80211Request_SET
 					}
 					
 				case APPLE80211_POWER_OFF:
+					DBG(dbgInfo, "Setting power off\n");
 					if (!(_flags & flagPowerOn)) // already off
 						return kIOReturnError;
 					else {
@@ -870,7 +869,7 @@ MyClass::workerThread
 				_flags &= ~(flagScanning);
 				break;
 			
-			case VoodooWirelessCommand::cmdAssociate:
+			case VoodooWirelessCommand::cmdAssociate: {
 				AssociationParameters* assocparams = (AssociationParameters*) cmd->arg0;
 				if (associate(assocparams) != kIOReturnSuccess) {
 					DBG(dbgWarning, "CMD: Association command failed\n");
@@ -880,7 +879,7 @@ MyClass::workerThread
 					_staState = staInit;
 				}
 				break;
-				
+			}
 			case VoodooWirelessCommand::cmdDisassociate:
 				if (disassociate() != kIOReturnSuccess) {
 					DBG(dbgWarning, "CMD: Disassociation command failed\n");
@@ -922,7 +921,7 @@ MyClass::enable
 	}
 	
 	setLinkStatus(kIONetworkLinkValid);
-	_netif->setLinkState(kIO80211NetworkLinkDown);	// down until we associate
+	_netif->setLinkState(kIO80211NetworkLinkDown, 0 /* meaning of this param is unknown */);	// down until we associate
 	getOutputQueue()->setCapacity(_hwInfo.txQueueSize);
 	
 	_flags |= flagInterfaceEnabled;
@@ -1152,7 +1151,7 @@ MyClass::inputFrame
 		handleScanResultFrame(hdr, m);
 		
 	} else {
-		DBG(dbgWarning, "Unknown packet type received, len = %u, type %u subtype %u\n",
+		DBG(dbgInfo, "Unknown packet type received, len = %u, type %u subtype %u\n",
 		    mbuf_pkthdr_len(m), rxhdr->hdr.type, rxhdr->hdr.subtype);
 		freePacket(m);
 	}
@@ -1527,6 +1526,14 @@ MyClass::getHardwareAddress
 }
 
 IOReturn
+MyClass::getHardwareAddressForInterface
+( IO80211Interface* netif, IOEthernetAddress* addr )
+{
+	bcopy(_hwInfo.hardwareAddress.bytes, addr->bytes, 6);
+	return kIOReturnSuccess;
+}
+
+IOReturn
 MyClass::getMaxPacketSize
 ( UInt32 *maxSize ) const
 {
@@ -1579,14 +1586,14 @@ MyClass::setLinkUp( )
 			DBG(dbgWarning, "WEP connection is up, but we have no SW cipher!\n")
 	}
 	
-	_netif->setLinkState(kIO80211NetworkLinkUp);
+	_netif->setLinkState(kIO80211NetworkLinkUp, 0);
 	getOutputQueue()->start();
 }
 
 void
 MyClass::setLinkDown( )
 {
-	_netif->setLinkState(kIO80211NetworkLinkDown);
+	_netif->setLinkState(kIO80211NetworkLinkDown, 0);
 	getOutputQueue()->stop();
 	getOutputQueue()->flush();
 	if (_cipher) {
@@ -1625,8 +1632,6 @@ void		MyClass::getHardwareInfo	( HardwareInfo* info )			{ return; }
 IOReturn	MyClass::getConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
 IOReturn	MyClass::setConfiguration	( HardwareConfigType type, void* param ){ return kIOReturnUnsupported; }
 IOReturn	MyClass::outputFrame		( TxFrameHeader hdr, mbuf_t data )	{ return kIOReturnUnsupported; }
-
-
 
 OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 0);
 OSMetaClassDefineReservedUnused(VoodooWirelessDevice, 1);

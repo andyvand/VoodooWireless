@@ -11,6 +11,13 @@
 #define _H_VOODOOWIRELESSFAMILY_H
 
 /* Contains definitions useful in general */
+enum {
+	dbgFatal	= 0x1,
+	dbgWarning	= 0x2,
+	dbgInfo		= 0x4
+};
+
+const int org_voodoo_wireless_debug = dbgFatal | dbgWarning;
 
 #define DBG(level, a, b...) { if (org_voodoo_wireless_debug & level)	\
 					IOLog("VoodooWireless:\t" a, ## b); }

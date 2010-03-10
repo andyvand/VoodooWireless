@@ -1,6 +1,6 @@
 #!/bin/sh
-kextunload /tmp/VoodooIEEE80211.kext
-rm -rf /tmp/VoodooIEEE80211.kext
-cp -Rv build/Debug/VoodooIEEE80211.kext /tmp
-chown -R root:wheel /tmp/VoodooIEEE80211.kext
-chmod -R 755 /tmp/VoodooIEEE80211.kext
+kextunload /tmp/VoodooWireless.kext
+rm -rf /tmp/VoodooWireless.kext
+cp -Rv build/Debug/VoodooWireless.kext /tmp
+chown -R root:wheel /tmp/VoodooWireless.kext
+chmod -R 755 /tmp/VoodooWireless.kext

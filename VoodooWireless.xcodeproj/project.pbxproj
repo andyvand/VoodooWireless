@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F284D73114693870098C419 /* apple80211_ioctl.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D67114693870098C419 /* apple80211_ioctl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D74114693870098C419 /* apple80211_var.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D68114693870098C419 /* apple80211_var.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D75114693870098C419 /* apple80211_wps.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D69114693870098C419 /* apple80211_wps.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D76114693870098C419 /* IO80211Controller.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6A114693870098C419 /* IO80211Controller.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D77114693870098C419 /* IO80211Interface.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6B114693870098C419 /* IO80211Interface.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D78114693870098C419 /* IO80211WorkLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6C114693870098C419 /* IO80211WorkLoop.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1F284D7F114693870098C419 /* apple80211_ioctl.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D67114693870098C419 /* apple80211_ioctl.h */; };
+		1F284D80114693870098C419 /* apple80211_var.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D68114693870098C419 /* apple80211_var.h */; };
+		1F284D81114693870098C419 /* apple80211_wps.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D69114693870098C419 /* apple80211_wps.h */; };
+		1F284D82114693870098C419 /* IO80211Controller.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6A114693870098C419 /* IO80211Controller.h */; };
+		1F284D83114693870098C419 /* IO80211Interface.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6B114693870098C419 /* IO80211Interface.h */; };
+		1F284D84114693870098C419 /* IO80211WorkLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F284D6C114693870098C419 /* IO80211WorkLoop.h */; };
 		2F052F081027737000FCCD01 /* VoodooWirelessFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2F052F091027737E00FCCD01 /* VoodooWirelessDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2F052F0A1027737E00FCCD01 /* VoodooWirelessDevice_Types.h in Headers */ = {isa = PBXBuildFile; fileRef = 2F39E68C0FE804B500051839 /* VoodooWirelessDevice_Types.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -52,6 +64,12 @@
 
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1F284D67114693870098C419 /* apple80211_ioctl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = apple80211_ioctl.h; path = apple80211/SL/apple80211_ioctl.h; sourceTree = "<group>"; };
+		1F284D68114693870098C419 /* apple80211_var.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = apple80211_var.h; path = apple80211/SL/apple80211_var.h; sourceTree = "<group>"; };
+		1F284D69114693870098C419 /* apple80211_wps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = apple80211_wps.h; path = apple80211/SL/apple80211_wps.h; sourceTree = "<group>"; };
+		1F284D6A114693870098C419 /* IO80211Controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IO80211Controller.h; path = apple80211/SL/IO80211Controller.h; sourceTree = "<group>"; };
+		1F284D6B114693870098C419 /* IO80211Interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IO80211Interface.h; path = apple80211/SL/IO80211Interface.h; sourceTree = "<group>"; };
+		1F284D6C114693870098C419 /* IO80211WorkLoop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IO80211WorkLoop.h; path = apple80211/SL/IO80211WorkLoop.h; sourceTree = "<group>"; };
 		2F03D70D0FE5213E003B961E /* VoodooIEEE80211.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooIEEE80211.h; sourceTree = "<group>"; };
 		2F03D70E0FE5213E003B961E /* VoodooIEEE80211.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VoodooIEEE80211.cpp; sourceTree = "<group>"; };
 		2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VoodooWirelessFamily.h; sourceTree = "<group>"; };
@@ -115,9 +133,9 @@
 				8DA8362C06AD9B9200E5AC22 /* Kernel.framework */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
-				2F5422AC100316B500DBCDF0 /* VoodooWirelessCipher_WEP-Info.plist */,
 				2F5422C1100318DB00DBCDF0 /* VoodooWirelessCipher-Info.plist */,
 				2F052AF9102772C100FCCD01 /* VoodooWirelessFramework-Info.plist */,
+				2F5422AC100316B500DBCDF0 /* VoodooWirelessCipher_WEP-Info.plist */,
 			);
 			name = VoodooWireless;
 			sourceTree = "<group>";
@@ -165,6 +183,12 @@
 		2FDA7F5D101DAA2E00DD932C /* VoodooWireless */ = {
 			isa = PBXGroup;
 			children = (
+				1F284D67114693870098C419 /* apple80211_ioctl.h */,
+				1F284D68114693870098C419 /* apple80211_var.h */,
+				1F284D69114693870098C419 /* apple80211_wps.h */,
+				1F284D6A114693870098C419 /* IO80211Controller.h */,
+				1F284D6B114693870098C419 /* IO80211Interface.h */,
+				1F284D6C114693870098C419 /* IO80211WorkLoop.h */,
 				2F03D7DA0FE563CC003B961E /* VoodooWirelessFamily.h */,
 				2F241B110FE251E20066F582 /* VoodooWirelessDevice.h */,
 				2F241B120FE251E20066F582 /* VoodooWirelessDevice.cpp */,
@@ -191,6 +215,12 @@
 				2F052F0B1027737E00FCCD01 /* VoodooIEEE80211.h in Headers */,
 				2F052F0C1027737E00FCCD01 /* VoodooIEEE80211_Types.h in Headers */,
 				2F052F0D1027738500FCCD01 /* VoodooWirelessCipher.h in Headers */,
+				1F284D73114693870098C419 /* apple80211_ioctl.h in Headers */,
+				1F284D74114693870098C419 /* apple80211_var.h in Headers */,
+				1F284D75114693870098C419 /* apple80211_wps.h in Headers */,
+				1F284D76114693870098C419 /* IO80211Controller.h in Headers */,
+				1F284D77114693870098C419 /* IO80211Interface.h in Headers */,
+				1F284D78114693870098C419 /* IO80211WorkLoop.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,6 +232,12 @@
 				2FDA7F5A101DAA1300DD932C /* VoodooIEEE80211.h in Headers */,
 				2FDA7F5C101DAA1D00DD932C /* VoodooIEEE80211_Types.h in Headers */,
 				2F06F19C101F2A7300B4D15F /* VoodooWirelessCommand.h in Headers */,
+				1F284D7F114693870098C419 /* apple80211_ioctl.h in Headers */,
+				1F284D80114693870098C419 /* apple80211_var.h in Headers */,
+				1F284D81114693870098C419 /* apple80211_wps.h in Headers */,
+				1F284D82114693870098C419 /* IO80211Controller.h in Headers */,
+				1F284D83114693870098C419 /* IO80211Interface.h in Headers */,
+				1F284D84114693870098C419 /* IO80211WorkLoop.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -415,15 +451,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CURRENT_PROJECT_VERSION = 1.0.5;
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				CURRENT_PROJECT_VERSION = 1.1.1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless;
-				MODULE_VERSION = 1.0.5;
+				MODULE_VERSION = 1.1.1;
 				PRODUCT_NAME = VoodooWireless;
+				SDKROOT = macosx10.6;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -438,7 +476,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
-				SDKROOT = macosx10.5;
+				SDKROOT = macosx10.6;
 			};
 			name = Debug;
 		};
