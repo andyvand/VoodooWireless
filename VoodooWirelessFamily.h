@@ -17,7 +17,7 @@ enum {
 	dbgInfo		= 0x4
 };
 
-const int org_voodoo_wireless_debug = dbgFatal | dbgWarning;
+static unsigned int org_voodoo_wireless_debug = dbgFatal;
 
 #define DBG(level, a, b...) { if (org_voodoo_wireless_debug & level)	\
 					IOLog("VoodooWireless:\t" a, ## b); }

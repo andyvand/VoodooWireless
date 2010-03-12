@@ -25,7 +25,7 @@
 
 OSDefineMetaClassAndStructors(VoodooWirelessDevice, IO80211Controller)
 
-//SYSCTL_INT(_debug, OID_AUTO, voodoowireless, CTLFLAG_RW, &org_voodoo_wireless_debug, 0, "VoodooWireless driver debug output level");
+SYSCTL_UINT(_debug, OID_AUTO, voodoowireless, CTLFLAG_RW, &org_voodoo_wireless_debug, 0, "VoodooWireless driver debug output level");
 
 enum {
 	// Flags for _flags member variable
@@ -54,6 +54,8 @@ MyClass::start
 {
 	if (!super::start(provider))
 		return false;
+	
+	sysctl_register_oid(&sysctl__debug_voodoowireless);
 	
 	/* Allocate a lock for ::enable() and ::disable() */
 	_lock = IOLockAlloc();
@@ -162,6 +164,8 @@ MyClass::stop
 	RELEASE(_medium);
 	RELEASE(_commandPool);
 	RELEASE(_workloop);
+	
+	sysctl_unregister_oid(&sysctl__debug_voodoowireless);
 	
 	return super::stop(provider);
 }
