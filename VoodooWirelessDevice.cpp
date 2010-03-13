@@ -1063,7 +1063,7 @@ MyClass::outputPacket
 	freePacket(origm);
 	
 	/* Dump the packet */
-	DUMP_MBUF(mnew, "Tx");
+	//DUMP_MBUF(mnew, "Tx");
 	
 	/* Now we have converted the mbuf to an 802.11 frame, transmit it */
 	TxFrameHeader hdr;
@@ -1079,7 +1079,7 @@ MyClass::outputPacket
 		IEEE::WiFiFrameHeader* whdr = (IEEE::WiFiFrameHeader*) mbuf_data(mnew);
 		whdr->protectedFrame = true;
 	}
-	DUMP_MBUF(mnew, "Tx WEP");
+	//DUMP_MBUF(mnew, "Tx WEP");
 	DBG(dbgInfo, "Outputting raw 802.11 packet len=%u\n", mbuf_pkthdr_len(mnew));
 	return outputFrame( hdr, mnew );
 }
@@ -1130,7 +1130,7 @@ MyClass::inputFrame
 		bcopy(rxhdr->sa, ethhdr.sa, 6);
 		bcopy(rxhdr->da, ethhdr.da, 6);
 		
-		DUMP_MBUF(m, "Rx WIFI");
+		//DUMP_MBUF(m, "Rx WIFI");
 		
 		/* Decrypt if needed */
 		if (_cipher && _cipherContext) {
@@ -1141,7 +1141,7 @@ MyClass::inputFrame
 			}
 		}
 		
-		DUMP_MBUF(m, "Rx WEP");
+		//DUMP_MBUF(m, "Rx WEP");
 		
 		/* Overwrite the front of frame with saved SA/DA, leaving ethertype untouched */
 		bcopy(&ethhdr, ((uint8_t*) mbuf_data(m)) + 24 - 6, 12);
@@ -1150,7 +1150,7 @@ MyClass::inputFrame
 		mbuf_adj(m, 24 - 6);
 		
 		/* Our job is now done. Pass it up the networking stack */
-		DUMP_MBUF(m, "Rx OSX");
+		//DUMP_MBUF(m, "Rx OSX");
 		inputPacket(m);
 	} else
 	if ((_flags & flagScanning) &&	/* If a scan is in progress */
@@ -1165,8 +1165,8 @@ MyClass::inputFrame
 		handleScanResultFrame(hdr, m);
 		
 	} else {
-		DBG(dbgInfo, "Unknown packet type received, len = %u, type %u subtype %u\n",
-		    mbuf_pkthdr_len(m), rxhdr->hdr.type, rxhdr->hdr.subtype);
+		/*DBG(dbgInfo, "Unknown packet type received, len = %u, type %u subtype %u\n",
+		    mbuf_pkthdr_len(m), rxhdr->hdr.type, rxhdr->hdr.subtype);*/
 		freePacket(m);
 	}
 }
