@@ -452,14 +452,14 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
-				CURRENT_PROJECT_VERSION = 1.1.2;
+				CURRENT_PROJECT_VERSION = 1.1.3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = org.voodoo.wireless;
-				MODULE_VERSION = 1.1.2;
+				MODULE_VERSION = 1.1.3;
 				PRODUCT_NAME = VoodooWireless;
 				SDKROOT = macosx10.6;
 				WRAPPER_EXTENSION = kext;

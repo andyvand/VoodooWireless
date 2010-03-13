@@ -1116,6 +1116,16 @@ MyClass::inputFrame
 			return;
 		}
 		
+		/* Check if this is a multicast packet sent by us and being echoed back. If yes, discard it */
+		if (rxhdr->bssid[0] & 0x01 /* multicast packet */
+		    && strncmp((char*) rxhdr->sa, (char*) _hwInfo.hardwareAddress.bytes, 6) == 0 /* source is us */)
+		{
+			/* Discard packet */
+			DBG(dbgInfo, "Discarding multicast echo packet\n");
+			freePacket(m);
+			return;
+		}
+		
 		/* Copy source and dest MAC addresses */
 		bcopy(rxhdr->sa, ethhdr.sa, 6);
 		bcopy(rxhdr->da, ethhdr.da, 6);
